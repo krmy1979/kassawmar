@@ -108,6 +108,11 @@ input{font:inherit;font-family:var(--mono);font-size:26px;letter-spacing:.12em;t
     <div class="label" id="callLabel">מתקשר…</div>
     <div class="who" id="callWho"></div>
     <div class="timer" id="timer">00:00</div>
+    <div style="width:100%">
+      <div class="label" style="margin-bottom:4px">הקול של הצד השני</div>
+      <div class="meter"><div id="remoteBar" style="height:100%;width:0;background:var(--accent);transition:width .08s"></div></div>
+    </div>
+    <button class="primary" id="playBtn" hidden style="width:100%">🔊 לחץ כאן כדי לשמוע את הצד השני</button>
     <div class="safety" id="safetyBox" hidden>
       <div class="lock">🔒 מוצפן מקצה לקצה</div>
       <div class="note">קוד אבטחה. ודאו בקול ששניכם רואים את אותו קוד. אם הקוד זהה, אף אחד לא מאזין באמצע.</div>
@@ -244,13 +249,38 @@ function wireCall(call, label){
   muted = false; $("muteBtn").textContent = "השתק";
   show("call");
   call.on("stream", remote => {
-    $("remoteAudio").srcObject = remote;
+    playRemote(remote);
     $("callLabel").textContent = "בשיחה";
     startTimer();
     showSafety(call);
   });
   call.on("close", endCall);
   call.on("error", endCall);
+}
+
+let remoteRaf;
+function playRemote(remote){
+  const a = $("remoteAudio");
+  a.srcObject = remote; a.muted = false; a.volume = 1;
+  const tryPlay = () => a.play().then(() => { $("playBtn").hidden = true; })
+    .catch(() => { $("playBtn").hidden = false; });
+  tryPlay();
+  $("playBtn").onclick = () => { try{ meterCtx && meterCtx.resume(); }catch(e){} tryPlay(); };
+  try{
+    meterCtx = meterCtx || new (window.AudioContext||window.webkitAudioContext)();
+    if (meterCtx.state === "suspended") meterCtx.resume();
+    const an = meterCtx.createAnalyser(); an.fftSize = 512;
+    meterCtx.createMediaStreamSource(remote).connect(an);
+    const buf = new Uint8Array(an.fftSize);
+    cancelAnimationFrame(remoteRaf);
+    const tick = () => {
+      an.getByteTimeDomainData(buf);
+      let peak = 0; for (const v of buf) peak = Math.max(peak, Math.abs(v - 128));
+      $("remoteBar").style.width = Math.min(100, peak * 1.6) + "%";
+      remoteRaf = requestAnimationFrame(tick);
+    };
+    tick();
+  }catch(e){}
 }
 
 async function showSafety(call){
@@ -283,6 +313,7 @@ function endCall(){
   if (pendingCall) { const c = pendingCall; pendingCall = null; try{c.close()}catch(e){} }
   if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
   $("remoteAudio").srcObject = null;
+  cancelAnimationFrame(remoteRaf); $("remoteBar").style.width = "0"; $("playBtn").hidden = true;
   show("idle");
 }
 

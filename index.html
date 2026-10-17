@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>kassawmar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: one centered handset column — identity card, dial pad, live call screen */
+:root{
+  --bg:#eef3f1; --surface:#ffffff; --fg:#14241f; --muted:#5d716a;
+  --accent:#0f8a6a; --accent-fg:#ffffff; --danger:#d8434b; --line:#d5e0dc;
+  --font:"Rubik",system-ui,"Segoe UI",Arial,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#0d1714; --surface:#16241f; --fg:#e4efeb; --muted:#8fa69e;
+  --accent:#2fc196; --accent-fg:#06231a; --danger:#ff6b72; --line:#26382f; color-scheme:dark}}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--fg);font-family:var(--font);font-size:16px;
+  display:flex;justify-content:center;align-items:flex-start;
+  padding-block:32px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.app{width:100%;max-width:380px;display:flex;flex-direction:column;gap:16px}
+header{display:flex;align-items:center;justify-content:space-between}
+.brand{font-weight:700;font-size:22px;letter-spacing:.02em;direction:ltr}
+.brand span{color:var(--accent)}
+.status{font-size:13px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+.dot.on{background:var(--accent)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:20px;display:flex;flex-direction:column;gap:12px}
+.label{font-size:12px;color:var(--muted);letter-spacing:.04em}
+.myid{font-family:var(--mono);font-size:30px;direction:ltr;text-align:center;letter-spacing:.12em}
+.row{display:flex;gap:8px}
+button{font:inherit;cursor:pointer;border-radius:12px;border:1px solid var(--line);background:var(--surface);color:var(--fg);padding:10px 14px}
+button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+button.primary{background:var(--accent);color:var(--accent-fg);border-color:var(--accent);font-weight:500}
+button.danger{background:var(--danger);color:#fff;border-color:var(--danger);font-weight:500}
+button:disabled{opacity:.45;cursor:not-allowed}
+.grow{flex:1}
+input{font:inherit;font-family:var(--mono);font-size:26px;letter-spacing:.12em;text-align:center;direction:ltr;width:100%;
+  padding:10px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--fg)}
+.pad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;direction:ltr}
+.pad button{font-size:22px;padding:14px 0;font-family:var(--mono)}
+.callscreen{text-align:center;align-items:center}
+.who{font-family:var(--mono);font-size:28px;direction:ltr;letter-spacing:.1em}
+.timer{font-family:var(--mono);color:var(--muted);font-variant-numeric:tabular-nums}
+.safety{width:100%;border:1px dashed var(--accent);border-radius:12px;padding:12px}
+.safety .code{font-family:var(--mono);font-size:22px;direction:ltr;letter-spacing:.08em;margin-top:6px}
+.lock{color:var(--accent);font-weight:500;font-size:14px}
+.note{font-size:13px;color:var(--muted);line-height:1.5}
+.toast{font-size:14px;color:var(--danger);min-height:1em}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="brand">kassa<span>wmar</span></div>
+    <div class="status"><span class="dot" id="dot"></span><span id="statusText">מתחבר…</span></div>
+  </header>
+
+  <section class="card" id="idCard">
+    <div class="label">הקוד שלך (שלח אותו למי שרוצה להתקשר אליך)</div>
+    <div class="myid" id="myId">------</div>
+    <div class="row">
+      <button class="grow" id="copyBtn">העתק קוד</button>
+      <button id="newIdBtn" title="קבל קוד חדש">קוד חדש</button>
+    </div>
+    <button class="primary" id="shareBtn" hidden>העתק קישור הזמנה (מי שלוחץ עליו מתקשר אליך)</button>
+  </section>
+
+  <section class="card" id="dialCard">
+    <div class="label">הקוד של מי שאתה מתקשר אליו</div>
+    <input id="dialInput" inputmode="numeric" maxlength="6" autocomplete="off" placeholder="000000">
+    <div class="pad" id="pad"></div>
+    <div class="row">
+      <button id="delBtn">מחק</button>
+      <button class="primary grow" id="callBtn">התקשר</button>
+    </div>
+    <div class="toast" id="toast" role="status"></div>
+  </section>
+
+  <section class="card callscreen" id="incomingCard" hidden>
+    <div class="label">שיחה נכנסת</div>
+    <div class="who" id="incomingWho"></div>
+    <div class="row" style="width:100%">
+      <button class="danger grow" id="rejectBtn">דחה</button>
+      <button class="primary grow" id="answerBtn">ענה</button>
+    </div>
+  </section>
+
+  <section class="card callscreen" id="callCard" hidden>
+    <div class="label" id="callLabel">מתקשר…</div>
+    <div class="who" id="callWho"></div>
+    <div class="timer" id="timer">00:00</div>
+    <div class="safety" id="safetyBox" hidden>
+      <div class="lock">🔒 מוצפן מקצה לקצה</div>
+      <div class="note">קוד אבטחה. ודאו בקול ששניכם רואים את אותו קוד. אם הקוד זהה, אף אחד לא מאזין באמצע.</div>
+      <div class="code" id="safetyCode"></div>
+    </div>
+    <div class="row" style="width:100%">
+      <button class="grow" id="muteBtn">השתק</button>
+      <button class="danger grow" id="hangBtn">נתק</button>
+    </div>
+  </section>
+
+  <p class="note">השיחה עוברת ישירות בין שני המחשבים (או הטלפונים), מוצפנת בהצפנת DTLS‑SRTP. השרת רק עוזר לשני הצדדים למצוא זה את זה ולא שומע את השיחה.</p>
+  <audio id="remoteAudio" autoplay></audio>
+</div>
+
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script>
+const PREFIX = "kassawmar-v1-";
+const $ = id => document.getElementById(id);
+let peer, localStream, currentCall, pendingCall, timerInt, muted = false;
+
+function store(k, v){ try{ if(v===undefined) return localStorage.getItem(k); localStorage.setItem(k,v);}catch(e){return null} }
+function randId(){ return String(Math.floor(100000 + Math.random()*900000)); }
+function setStatus(t, on){ $("statusText").textContent = t; $("dot").classList.toggle("on", !!on); }
+function toast(t){ $("toast").textContent = t || ""; }
+
+function start(id){
+  if (peer) peer.destroy();
+  $("myId").textContent = id;
+  setStatus("מתחבר…");
+  peer = new Peer(PREFIX + id, {
+    config: { iceServers: [
+      { urls: "stun:stun.l.google.com:19302" },
+      { urls: "stun:stun1.l.google.com:19302" }
+    ]}
+  });
+  peer.on("open", () => setStatus("מחובר, מוכן לשיחות", true));
+  peer.on("disconnected", () => { setStatus("החיבור נפל, מתחבר מחדש…"); setTimeout(()=>{ try{peer.reconnect()}catch(e){} }, 1500); });
+  peer.on("error", err => {
+    if (err.type === "unavailable-id") { const n = randId(); store("kw_id", n); start(n); return; }
+    if (err.type === "peer-unavailable") { toast("הקוד לא מחובר כרגע. ודא שהצד השני פתח את האפליקציה."); endCall(); return; }
+    if (err.type === "network" || err.type === "server-error") { setStatus("אין חיבור לאינטרנט"); return; }
+    toast("שגיאה: " + err.type);
+  });
+  peer.on("call", call => {
+    if (currentCall || pendingCall) { call.close(); return; }
+    pendingCall = call;
+    $("incomingWho").textContent = call.peer.replace(PREFIX, "");
+    show("incoming");
+    ring(true);
+    call.on("close", () => { if (pendingCall === call) { pendingCall = null; ring(false); show("idle"); } });
+  });
+}
+
+async function getMic(){
+  if (localStream) return localStream;
+  localStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation:true, noiseSuppression:true }, video:false });
+  return localStream;
+}
+
+function show(mode){
+  $("idCard").hidden = mode !== "idle";
+  $("dialCard").hidden = mode !== "idle";
+  $("incomingCard").hidden = mode !== "incoming";
+  $("callCard").hidden = mode !== "call";
+}
+
+let ringCtx, ringInt;
+function ring(on){
+  clearInterval(ringInt);
+  if (!on) return;
+  try{
+    ringCtx = ringCtx || new (window.AudioContext||window.webkitAudioContext)();
+    const beep = () => { const o = ringCtx.createOscillator(), g = ringCtx.createGain();
+      o.frequency.value = 480; g.gain.value = .08; o.connect(g).connect(ringCtx.destination);
+      o.start(); o.stop(ringCtx.currentTime + .6); };
+    beep(); ringInt = setInterval(beep, 2000);
+  }catch(e){}
+}
+
+function wireCall(call, label){
+  currentCall = call;
+  $("callWho").textContent = call.peer.replace(PREFIX, "");
+  $("callLabel").textContent = label;
+  $("timer").textContent = "00:00";
+  $("safetyBox").hidden = true;
+  muted = false; $("muteBtn").textContent = "השתק";
+  show("call");
+  call.on("stream", remote => {
+    $("remoteAudio").srcObject = remote;
+    $("callLabel").textContent = "בשיחה";
+    startTimer();
+    showSafety(call);
+  });
+  call.on("close", endCall);
+  call.on("error", endCall);
+}
+
+async function showSafety(call){
+  try{
+    const pc = call.peerConnection;
+    const fp = sdp => (sdp.match(/a=fingerprint:sha-256 ([0-9A-F:]+)/i)||[])[1] || "";
+    const a = fp(pc.localDescription.sdp), b = fp(pc.remoteDescription.sdp);
+    if (!a || !b) return;
+    const data = new TextEncoder().encode([a,b].sort().join("|"));
+    const hash = new Uint8Array(await crypto.subtle.digest("SHA-256", data));
+    let digits = "";
+    for (let i = 0; i < 6; i++) digits += String(((hash[i*2] << 8) | hash[i*2+1]) % 100).padStart(2,"0");
+    $("safetyCode").textContent = digits.match(/.{4}/g).join(" ");
+    $("safetyBox").hidden = false;
+  }catch(e){}
+}
+
+function startTimer(){
+  const t0 = Date.now(); clearInterval(timerInt);
+  timerInt = setInterval(() => {
+    const s = Math.floor((Date.now()-t0)/1000);
+    $("timer").textContent = String(Math.floor(s/60)).padStart(2,"0") + ":" + String(s%60).padStart(2,"0");
+  }, 1000);
+}
+
+function endCall(){
+  ring(false);
+  clearInterval(timerInt);
+  if (currentCall) { const c = currentCall; currentCall = null; try{c.close()}catch(e){} }
+  if (pendingCall) { const c = pendingCall; pendingCall = null; try{c.close()}catch(e){} }
+  if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
+  $("remoteAudio").srcObject = null;
+  show("idle");
+}
+
+$("callBtn").onclick = async () => {
+  toast("");
+  const code = $("dialInput").value.trim();
+  if (!/^\d{6}$/.test(code)) { toast("הקוד צריך להיות 6 ספרות."); return; }
+  if (code === $("myId").textContent) { toast("זה הקוד שלך. הזן את הקוד של הצד השני."); return; }
+  if (!peer || !peer.open) { toast("עדיין לא מחובר לאינטרנט, נסה שוב בעוד רגע."); return; }
+  try{ await getMic(); }catch(e){ toast("אין גישה למיקרופון. אשר גישה למיקרופון בדפדפן ונסה שוב."); return; }
+  wireCall(peer.call(PREFIX + code, localStream), "מתקשר…");
+};
+$("answerBtn").onclick = async () => {
+  ring(false);
+  const call = pendingCall; pendingCall = null;
+  if (!call) return;
+  try{ await getMic(); }catch(e){ toast("אין גישה למיקרופון. אשר גישה למיקרופון בדפדפן."); call.close(); show("idle"); return; }
+  call.answer(localStream);
+  wireCall(call, "מתחבר…");
+};
+$("rejectBtn").onclick = () => { ring(false); if (pendingCall){ pendingCall.close(); pendingCall = null; } show("idle"); };
+$("hangBtn").onclick = endCall;
+$("muteBtn").onclick = () => {
+  if (!localStream) return;
+  muted = !muted;
+  localStream.getAudioTracks().forEach(t => t.enabled = !muted);
+  $("muteBtn").textContent = muted ? "בטל השתקה" : "השתק";
+};
+$("copyBtn").onclick = async () => {
+  try{ await navigator.clipboard.writeText($("myId").textContent); $("copyBtn").textContent = "הועתק"; }
+  catch(e){ $("copyBtn").textContent = "סמן והעתק ידנית"; }
+  setTimeout(()=> $("copyBtn").textContent = "העתק קוד", 1500);
+};
+$("newIdBtn").onclick = () => { const n = randId(); store("kw_id", n); start(n); };
+
+const pad = $("pad");
+["1","2","3","4","5","6","7","8","9","","0",""].forEach(k => {
+  const b = document.createElement("button");
+  b.textContent = k; if (!k) { b.disabled = true; b.style.visibility = "hidden"; }
+  b.onclick = () => { if ($("dialInput").value.length < 6) $("dialInput").value += k; };
+  pad.appendChild(b);
+});
+$("delBtn").onclick = () => { $("dialInput").value = $("dialInput").value.slice(0,-1); };
+$("dialInput").addEventListener("input", e => { e.target.value = e.target.value.replace(/\D/g,"").slice(0,6); });
+$("dialInput").addEventListener("keydown", e => { if (e.key === "Enter") $("callBtn").click(); });
+
+const isWeb = location.protocol.startsWith("http");
+if (isWeb) {
+  $("shareBtn").hidden = false;
+  $("shareBtn").onclick = async () => {
+    const link = location.origin + location.pathname + "?call=" + $("myId").textContent;
+    try{ await navigator.clipboard.writeText(link); $("shareBtn").textContent = "הקישור הועתק, הדבק אותו בוואטסאפ"; }
+    catch(e){ $("shareBtn").textContent = link; }
+    setTimeout(()=> $("shareBtn").textContent = "העתק קישור הזמנה (מי שלוחץ עליו מתקשר אליך)", 3000);
+  };
+  const want = new URLSearchParams(location.search).get("call");
+  if (want && /^\d{6}$/.test(want)) {
+    $("dialInput").value = want;
+    toast("");
+    $("callBtn").textContent = "התקשר ל־" + want;
+  }
+}
+
+if (typeof Peer === "undefined") { setStatus("אין חיבור לאינטרנט"); }
+else {
+  let id = store("kw_id");
+  if (!id || !/^\d{6}$/.test(id)) { id = randId(); store("kw_id", id); }
+  start(id);
+}
+</script>
+</body>
+</html>

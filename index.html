@@ -51,7 +51,10 @@ input{font:inherit;font-family:var(--mono);font-size:26px;letter-spacing:.12em;t
 .safety .code{font-family:var(--mono);font-size:22px;direction:ltr;letter-spacing:.08em;margin-top:6px}
 .lock{color:var(--accent);font-weight:500;font-size:14px}
 .note{font-size:13px;color:var(--muted);line-height:1.5}
-.toast{font-size:14px;color:var(--danger);min-height:1em}
+.toast{font-size:14px;color:var(--danger);min-height:1em;line-height:1.5}
+.meter{height:8px;border-radius:4px;background:var(--bg);border:1px solid var(--line);overflow:hidden;direction:ltr}
+#meterBar{height:100%;width:0;background:var(--accent);transition:width .08s}
+.ok{color:var(--accent);font-weight:500}
 </style>
 </head>
 <body>
@@ -69,6 +72,16 @@ input{font:inherit;font-family:var(--mono);font-size:26px;letter-spacing:.12em;t
       <button id="newIdBtn" title="קבל קוד חדש">קוד חדש</button>
     </div>
     <button class="primary" id="shareBtn" hidden>העתק קישור הזמנה (מי שלוחץ עליו מתקשר אליך)</button>
+  </section>
+
+  <section class="card" id="micCard">
+    <div class="label">מיקרופון</div>
+    <div class="row" style="align-items:center">
+      <button id="micBtn" class="grow">בדוק מיקרופון</button>
+      <span id="micState" class="note">לא נבדק</span>
+    </div>
+    <div class="meter"><div id="meterBar"></div></div>
+    <div class="toast" id="micHelp" role="status"></div>
   </section>
 
   <section class="card" id="dialCard">
@@ -149,15 +162,62 @@ function start(id){
   });
 }
 
+const UA = navigator.userAgent || "";
+const inApp = /FBAN|FBAV|Instagram|WhatsApp|Line\/|Telegram|; wv\)/i.test(UA);
+
+function micErrorText(e){
+  if (inApp) return "נראה שהקישור נפתח בתוך וואטסאפ או אפליקציה אחרת, ושם אין גישה למיקרופון. לחץ על שלוש הנקודות למעלה ובחר \"פתח ב־Chrome\" (או ב־Safari באייפון).";
+  if (!window.isSecureContext || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia)
+    return "הדפדפן הזה לא מאפשר מיקרופון. פתח את הקישור ב־Chrome (אנדרואיד) או ב־Safari (אייפון).";
+  const n = e && e.name;
+  if (n === "NotAllowedError" || n === "SecurityError")
+    return "הגישה למיקרופון חסומה. לחץ על סמל המנעול או ההגדרות ליד הכתובת למעלה, ובחר במיקרופון ← אפשר. אחר כך רענן את הדף. אם זה לא עוזר: הגדרות הטלפון ← אפליקציות ← Chrome ← הרשאות ← מיקרופון ← אפשר.";
+  if (n === "NotFoundError" || n === "OverconstrainedError") return "לא נמצא מיקרופון במכשיר. אם זה מחשב, חבר אוזניות עם מיקרופון.";
+  if (n === "NotReadableError" || n === "AbortError") return "המיקרופון תפוס על ידי אפליקציה אחרת (שיחה, זום, הקלטה). סגור אותה ונסה שוב.";
+  return "לא הצלחתי לפתוח את המיקרופון (" + (n || "שגיאה") + "). נסה לרענן את הדף.";
+}
+
 async function getMic(){
-  if (localStream) return localStream;
+  if (localStream && localStream.getAudioTracks().some(t => t.readyState === "live")) return localStream;
+  if (inApp || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw { name: "Unsupported" };
   localStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation:true, noiseSuppression:true }, video:false });
+  startMeter(localStream);
+  $("micState").textContent = "המיקרופון עובד ✓"; $("micState").className = "note ok";
+  $("micHelp").textContent = "";
   return localStream;
 }
+
+let meterCtx, meterRaf;
+function startMeter(stream){
+  try{
+    cancelAnimationFrame(meterRaf);
+    meterCtx = meterCtx || new (window.AudioContext||window.webkitAudioContext)();
+    if (meterCtx.state === "suspended") meterCtx.resume();
+    const an = meterCtx.createAnalyser(); an.fftSize = 512;
+    meterCtx.createMediaStreamSource(stream).connect(an);
+    const buf = new Uint8Array(an.fftSize);
+    const tick = () => {
+      an.getByteTimeDomainData(buf);
+      let peak = 0; for (const v of buf) peak = Math.max(peak, Math.abs(v - 128));
+      $("meterBar").style.width = Math.min(100, peak * 1.6) + "%";
+      meterRaf = requestAnimationFrame(tick);
+    };
+    tick();
+  }catch(e){}
+}
+
+function micFail(e){
+  $("micState").textContent = "אין גישה"; $("micState").className = "note";
+  $("micHelp").textContent = micErrorText(e);
+}
+
+$("micBtn").onclick = async () => { try{ await getMic(); }catch(e){ micFail(e); } };
+if (inApp) micFail({ name: "InApp" });
 
 function show(mode){
   $("idCard").hidden = mode !== "idle";
   $("dialCard").hidden = mode !== "idle";
+  $("micCard").hidden = mode !== "idle";
   $("incomingCard").hidden = mode !== "incoming";
   $("callCard").hidden = mode !== "call";
 }
@@ -232,14 +292,14 @@ $("callBtn").onclick = async () => {
   if (!/^\d{6}$/.test(code)) { toast("הקוד צריך להיות 6 ספרות."); return; }
   if (code === $("myId").textContent) { toast("זה הקוד שלך. הזן את הקוד של הצד השני."); return; }
   if (!peer || !peer.open) { toast("עדיין לא מחובר לאינטרנט, נסה שוב בעוד רגע."); return; }
-  try{ await getMic(); }catch(e){ toast("אין גישה למיקרופון. אשר גישה למיקרופון בדפדפן ונסה שוב."); return; }
+  try{ await getMic(); }catch(e){ micFail(e); toast("אי אפשר להתקשר בלי מיקרופון. ראה הסבר למעלה."); return; }
   wireCall(peer.call(PREFIX + code, localStream), "מתקשר…");
 };
 $("answerBtn").onclick = async () => {
   ring(false);
   const call = pendingCall; pendingCall = null;
   if (!call) return;
-  try{ await getMic(); }catch(e){ toast("אין גישה למיקרופון. אשר גישה למיקרופון בדפדפן."); call.close(); show("idle"); return; }
+  try{ await getMic(); }catch(e){ call.close(); show("idle"); micFail(e); toast("אי אפשר לענות בלי מיקרופון. ראה הסבר למעלה."); return; }
   call.answer(localStream);
   wireCall(call, "מתחבר…");
 };

@@ -163,7 +163,7 @@ function start(id){
     $("incomingWho").textContent = call.peer.replace(PREFIX, "");
     show("incoming");
     ring(true);
-    call.on("close", () => { if (pendingCall === call) { pendingCall = null; ring(false); show("idle"); } });
+    call.on("close", () => { if (pendingCall === call) { pendingCall = null; ring(false); if (!currentCall) show("idle"); } });
   });
 }
 
@@ -248,14 +248,41 @@ function wireCall(call, label){
   $("safetyBox").hidden = true;
   muted = false; $("muteBtn").textContent = "השתק";
   show("call");
+  clearTimeout(noAnswerTimer);
+  if (label === "מתקשר…") noAnswerTimer = setTimeout(() => {
+    if (currentCall === call && $("callLabel").textContent !== "בשיחה") { toast("אין מענה."); endCall(); }
+  }, 45000);
   call.on("stream", remote => {
+    if (currentCall !== call) return;
+    clearTimeout(noAnswerTimer);
     playRemote(remote);
     $("callLabel").textContent = "בשיחה";
     startTimer();
     showSafety(call);
   });
-  call.on("close", endCall);
-  call.on("error", endCall);
+  const mine = () => { if (currentCall === call) endCall(); };
+  call.on("close", mine);
+  call.on("error", mine);
+  watchConnection(call, mine);
+}
+
+// PeerJS doesn't always tell the other side that the call ended.
+// Watch the connection itself: if it drops for more than a few seconds, end the call.
+function watchConnection(call, onEnd){
+  let tries = 0, dropTimer;
+  const attach = () => {
+    const pc = call.peerConnection;
+    if (!pc) { if (tries++ < 20) setTimeout(attach, 250); return; }
+    const check = () => {
+      const st = pc.connectionState || pc.iceConnectionState;
+      clearTimeout(dropTimer);
+      if (st === "failed" || st === "closed") onEnd();
+      else if (st === "disconnected") dropTimer = setTimeout(onEnd, 4000);
+    };
+    pc.addEventListener("connectionstatechange", check);
+    pc.addEventListener("iceconnectionstatechange", check);
+  };
+  attach();
 }
 
 let remoteRaf;
@@ -306,12 +333,19 @@ function startTimer(){
   }, 1000);
 }
 
+let noAnswerTimer;
 function endCall(){
+  show("idle");
   ring(false);
   clearInterval(timerInt);
+  clearTimeout(noAnswerTimer);
   if (currentCall) { const c = currentCall; currentCall = null; try{c.close()}catch(e){} }
   if (pendingCall) { const c = pendingCall; pendingCall = null; try{c.close()}catch(e){} }
   if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
+  cancelAnimationFrame(meterRaf); $("meterBar").style.width = "0";
+  $("micState").textContent = ""; muted = false;
+  // make sure we're still reachable for the next call
+  if (peer && !peer.destroyed && peer.disconnected) { try{ peer.reconnect(); }catch(e){} }
   $("remoteAudio").srcObject = null;
   cancelAnimationFrame(remoteRaf); $("remoteBar").style.width = "0"; $("playBtn").hidden = true;
   show("idle");
@@ -322,6 +356,8 @@ $("callBtn").onclick = async () => {
   const code = $("dialInput").value.trim();
   if (!/^\d{6}$/.test(code)) { toast("הקוד צריך להיות 6 ספרות."); return; }
   if (code === $("myId").textContent) { toast("זה הקוד שלך. הזן את הקוד של הצד השני."); return; }
+  if (currentCall || pendingCall) endCall();
+  if (peer && !peer.destroyed && peer.disconnected) { try{ peer.reconnect(); }catch(e){} }
   if (!peer || !peer.open) { toast("עדיין לא מחובר לאינטרנט, נסה שוב בעוד רגע."); return; }
   try{ await getMic(); }catch(e){ micFail(e); toast("אי אפשר להתקשר בלי מיקרופון. ראה הסבר למעלה."); return; }
   wireCall(peer.call(PREFIX + code, localStream), "מתקשר…");

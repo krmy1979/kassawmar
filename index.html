@@ -19,6 +19,7 @@
   --bg:#0d1714; --surface:#16241f; --fg:#e4efeb; --muted:#8fa69e;
   --accent:#2fc196; --accent-fg:#06231a; --danger:#ff6b72; --line:#26382f; color-scheme:dark}}
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 html,body{height:100%;margin:0}
 body{background:var(--bg);color:var(--fg);font-family:var(--font);font-size:16px;
   display:flex;justify-content:center;align-items:flex-start;
@@ -55,6 +56,14 @@ input{font:inherit;font-family:var(--mono);font-size:26px;letter-spacing:.12em;t
 .meter{height:8px;border-radius:4px;background:var(--bg);border:1px solid var(--line);overflow:hidden;direction:ltr}
 #meterBar{height:100%;width:0;background:var(--accent);transition:width .08s}
 .ok{color:var(--accent);font-weight:500}
+.myid .pre{color:var(--accent)}
+.contacts{display:flex;flex-direction:column;gap:6px}
+.contact{display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:12px;padding:8px 10px}
+.contact .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500}
+.contact .nu{font-family:var(--mono);font-size:13px;color:var(--muted);direction:ltr}
+.contact button{padding:6px 10px}
+.small{font-size:13px;padding:6px 10px}
+#pickBox input{font-size:22px}
 </style>
 </head>
 <body>
@@ -65,11 +74,22 @@ input{font:inherit;font-family:var(--mono);font-size:26px;letter-spacing:.12em;t
   </header>
 
   <section class="card" id="idCard">
-    <div class="label">הקוד שלך (שלח אותו למי שרוצה להתקשר אליך)</div>
-    <div class="myid" id="myId">------</div>
+    <div class="label">המספר הקבוע שלך ב־kassawmar</div>
+    <div class="myid"><span class="pre">099-</span><span id="myId">-------</span></div>
     <div class="row">
-      <button class="grow" id="copyBtn">העתק קוד</button>
-      <button id="newIdBtn" title="קבל קוד חדש">קוד חדש</button>
+      <button class="grow" id="copyBtn">העתק מספר</button>
+      <button id="newIdBtn" title="בחר מספר אחר">בחר מספר</button>
+    </div>
+    <div id="pickBox" hidden style="display:flex;flex-direction:column;gap:8px">
+      <div class="note">הקלד 7 ספרות שתרצה, או לחץ "הצע לי" לקבלת מספר פנוי.</div>
+      <div class="row" style="align-items:center;direction:ltr"><span style="font-family:var(--mono);font-size:20px">099-</span>
+        <input id="pickInput" inputmode="numeric" maxlength="7" autocomplete="off" placeholder="1234567"></div>
+      <div class="row">
+        <button class="small" id="pickRandBtn">הצע לי</button>
+        <button class="small grow primary" id="pickOkBtn">שמור מספר</button>
+        <button class="small" id="pickCancelBtn">ביטול</button>
+      </div>
+      <div class="toast" id="pickMsg" role="status"></div>
     </div>
     <button class="primary" id="shareBtn" hidden>העתק קישור הזמנה (מי שלוחץ עליו מתקשר אליך)</button>
   </section>
@@ -85,14 +105,23 @@ input{font:inherit;font-family:var(--mono);font-size:26px;letter-spacing:.12em;t
   </section>
 
   <section class="card" id="dialCard">
-    <div class="label">הקוד של מי שאתה מתקשר אליו</div>
-    <input id="dialInput" inputmode="numeric" maxlength="6" autocomplete="off" placeholder="000000">
+    <div class="label">המספר של מי שאתה מתקשר אליו</div>
+    <input id="dialInput" inputmode="numeric" maxlength="12" autocomplete="off" placeholder="099-0000000">
     <div class="pad" id="pad"></div>
     <div class="row">
       <button id="delBtn">מחק</button>
       <button class="primary grow" id="callBtn">התקשר</button>
     </div>
     <div class="toast" id="toast" role="status"></div>
+  </section>
+
+  <section class="card" id="contactsCard">
+    <div class="row" style="align-items:center;justify-content:space-between">
+      <div class="label">אנשי קשר</div>
+      <button class="small" id="addContactBtn">+ הוסף</button>
+    </div>
+    <div class="contacts" id="contactList"></div>
+    <div class="note" id="noContacts">עדיין אין אנשי קשר. אחרי שיחה תוכל לשמור את המספר בלחיצה.</div>
   </section>
 
   <section class="card callscreen" id="incomingCard" hidden>
@@ -124,21 +153,26 @@ input{font:inherit;font-family:var(--mono);font-size:26px;letter-spacing:.12em;t
     </div>
   </section>
 
-  <p class="note">השיחה עוברת ישירות בין שני המחשבים (או הטלפונים), מוצפנת בהצפנת DTLS‑SRTP. השרת רק עוזר לשני הצדדים למצוא זה את זה ולא שומע את השיחה.</p>
+  <p class="note">המספר נשמר במכשיר הזה ונשאר קבוע. השיחה עוברת ישירות בין שני המחשבים (או הטלפונים), מוצפנת בהצפנת DTLS‑SRTP. השרת רק עוזר לשני הצדדים למצוא זה את זה ולא שומע את השיחה.</p>
   <audio id="remoteAudio" autoplay></audio>
 </div>
 
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <script>
-const PREFIX = "kassawmar-v1-";
+const PREFIX = "kassawmar-099-";
 const $ = id => document.getElementById(id);
 let peer, localStream, currentCall, pendingCall, timerInt, muted = false;
 
 function store(k, v){ try{ if(v===undefined) return localStorage.getItem(k); localStorage.setItem(k,v);}catch(e){return null} }
-function randId(){ return String(Math.floor(100000 + Math.random()*900000)); }
+function randId(){ return String(Math.floor(1000000 + Math.random()*9000000)); }
+const fmt = n => "099-" + n;
+// accepts 1234567, 0991234567, 099-1234567 → "1234567"
+function normNum(v){ v = String(v||"").replace(/\D/g,""); if (v.length === 10 && v.startsWith("099")) v = v.slice(3); return /^\d{7}$/.test(v) ? v : null; }
+const whoOf = peerId => peerId.replace(PREFIX, "");
 function setStatus(t, on){ $("statusText").textContent = t; $("dot").classList.toggle("on", !!on); }
 function toast(t){ $("toast").textContent = t || ""; }
 
+let takenTries = 0, onStartResult = null;
 function start(id){
   if (peer) peer.destroy();
   $("myId").textContent = id;
@@ -149,18 +183,29 @@ function start(id){
       { urls: "stun:stun1.l.google.com:19302" }
     ]}
   });
-  peer.on("open", () => setStatus("מחובר, מוכן לשיחות", true));
+  peer.on("open", () => {
+    takenTries = 0; store("kw_num", id); setStatus("מחובר, מוכן לשיחות", true);
+    if (onStartResult) { const f = onStartResult; onStartResult = null; f(true); }
+  });
   peer.on("disconnected", () => { setStatus("החיבור נפל, מתחבר מחדש…"); setTimeout(()=>{ try{peer.reconnect()}catch(e){} }, 1500); });
   peer.on("error", err => {
-    if (err.type === "unavailable-id") { const n = randId(); store("kw_id", n); start(n); return; }
-    if (err.type === "peer-unavailable") { toast("הקוד לא מחובר כרגע. ודא שהצד השני פתח את האפליקציה."); endCall(); return; }
+    if (err.type === "unavailable-id") {
+      // trying a new number that someone else holds
+      if (onStartResult) { const f = onStartResult; onStartResult = null; f(false); return; }
+      // our own saved number: probably our previous session hasn't been released yet, retry a few times
+      if (takenTries++ < 4) { setStatus("מחכה לשחרור המספר…"); setTimeout(() => start(id), 5000); return; }
+      setStatus("המספר שלך פתוח בחלון או מכשיר אחר");
+      toast("המספר 099-" + id + " פתוח כרגע במקום אחר. סגור את החלון השני ורענן.");
+      return;
+    }
+    if (err.type === "peer-unavailable") { toast("המספר לא מחובר כרגע. ודא שהצד השני פתח את האפליקציה."); endCall(); return; }
     if (err.type === "network" || err.type === "server-error") { setStatus("אין חיבור לאינטרנט"); return; }
     toast("שגיאה: " + err.type);
   });
   peer.on("call", call => {
     if (currentCall || pendingCall) { call.close(); return; }
     pendingCall = call;
-    $("incomingWho").textContent = call.peer.replace(PREFIX, "");
+    $("incomingWho").textContent = label(whoOf(call.peer));
     show("incoming");
     ring(true);
     call.on("close", () => { if (pendingCall === call) { pendingCall = null; ring(false); if (!currentCall) show("idle"); } });
@@ -223,6 +268,7 @@ function show(mode){
   $("idCard").hidden = mode !== "idle";
   $("dialCard").hidden = mode !== "idle";
   $("micCard").hidden = mode !== "idle";
+  $("contactsCard").hidden = mode !== "idle";
   $("incomingCard").hidden = mode !== "incoming";
   $("callCard").hidden = mode !== "call";
 }
@@ -242,7 +288,7 @@ function ring(on){
 
 function wireCall(call, label){
   currentCall = call;
-  $("callWho").textContent = call.peer.replace(PREFIX, "");
+  $("callWho").textContent = label(whoOf(call.peer));
   $("callLabel").textContent = label;
   $("timer").textContent = "00:00";
   $("safetyBox").hidden = true;
@@ -255,6 +301,7 @@ function wireCall(call, label){
   call.on("stream", remote => {
     if (currentCall !== call) return;
     clearTimeout(noAnswerTimer);
+    lastPeer = whoOf(call.peer); // only offer to save numbers we actually talked to
     playRemote(remote);
     $("callLabel").textContent = "בשיחה";
     startTimer();
@@ -349,13 +396,15 @@ function endCall(){
   $("remoteAudio").srcObject = null;
   cancelAnimationFrame(remoteRaf); $("remoteBar").style.width = "0"; $("playBtn").hidden = true;
   show("idle");
+  if (lastPeer && !contacts.some(c => c.n === lastPeer)) offerSave(lastPeer);
+  lastPeer = null;
 }
 
 $("callBtn").onclick = async () => {
   toast("");
-  const code = $("dialInput").value.trim();
-  if (!/^\d{6}$/.test(code)) { toast("הקוד צריך להיות 6 ספרות."); return; }
-  if (code === $("myId").textContent) { toast("זה הקוד שלך. הזן את הקוד של הצד השני."); return; }
+  const code = normNum($("dialInput").value);
+  if (!code) { toast("המספר צריך להיות 099 ועוד 7 ספרות."); return; }
+  if (code === $("myId").textContent) { toast("זה המספר שלך. הזן את המספר של הצד השני."); return; }
   if (currentCall || pendingCall) endCall();
   if (peer && !peer.destroyed && peer.disconnected) { try{ peer.reconnect(); }catch(e){} }
   if (!peer || !peer.open) { toast("עדיין לא מחובר לאינטרנט, נסה שוב בעוד רגע."); return; }
@@ -379,44 +428,104 @@ $("muteBtn").onclick = () => {
   $("muteBtn").textContent = muted ? "בטל השתקה" : "השתק";
 };
 $("copyBtn").onclick = async () => {
-  try{ await navigator.clipboard.writeText($("myId").textContent); $("copyBtn").textContent = "הועתק"; }
+  try{ await navigator.clipboard.writeText(fmt($("myId").textContent)); $("copyBtn").textContent = "הועתק"; }
   catch(e){ $("copyBtn").textContent = "סמן והעתק ידנית"; }
-  setTimeout(()=> $("copyBtn").textContent = "העתק קוד", 1500);
+  setTimeout(()=> $("copyBtn").textContent = "העתק מספר", 1500);
 };
-$("newIdBtn").onclick = () => { const n = randId(); store("kw_id", n); start(n); };
+
+// ---- choose a number
+$("newIdBtn").onclick = () => { $("pickBox").hidden = !$("pickBox").hidden; $("pickMsg").textContent = ""; $("pickInput").value = ""; };
+$("pickCancelBtn").onclick = () => { $("pickBox").hidden = true; };
+$("pickRandBtn").onclick = () => { $("pickInput").value = randId(); };
+$("pickInput").addEventListener("input", e => { e.target.value = e.target.value.replace(/\D/g,"").slice(0,7); });
+$("pickOkBtn").onclick = () => {
+  const n = normNum($("pickInput").value);
+  if (!n) { $("pickMsg").textContent = "צריך בדיוק 7 ספרות."; return; }
+  if (n === $("myId").textContent) { $("pickBox").hidden = true; return; }
+  if (currentCall || pendingCall) { $("pickMsg").textContent = "אי אפשר להחליף מספר באמצע שיחה."; return; }
+  const old = $("myId").textContent;
+  $("pickMsg").textContent = "בודק אם המספר פנוי…";
+  onStartResult = ok => {
+    if (ok) { $("pickBox").hidden = true; toast(""); }
+    else { start(old); $("pickMsg").textContent = "המספר 099-" + n + " תפוס כרגע. נסה מספר אחר."; }
+  };
+  start(n);
+};
+
+// ---- contacts (saved on this device)
+let contacts = [], lastPeer = null;
+try { contacts = JSON.parse(store("kw_contacts") || "[]").filter(c => c && normNum(c.n)); } catch(e){ contacts = []; }
+const saveContacts = () => store("kw_contacts", JSON.stringify(contacts));
+function label(n){ const c = contacts.find(c => c.n === n); return c ? c.name + "  " + fmt(n) : fmt(n); }
+function renderContacts(){
+  const box = $("contactList"); box.textContent = "";
+  $("noContacts").hidden = contacts.length > 0;
+  contacts.forEach((c, i) => {
+    const row = document.createElement("div"); row.className = "contact";
+    const nm = document.createElement("div"); nm.className = "nm"; nm.textContent = c.name;
+    const nu = document.createElement("div"); nu.className = "nu"; nu.textContent = fmt(c.n);
+    const call = document.createElement("button"); call.className = "primary"; call.textContent = "חייג";
+    call.onclick = () => { $("dialInput").value = fmt(c.n); $("callBtn").click(); };
+    const del = document.createElement("button"); del.textContent = "✕"; del.title = "מחק";
+    del.onclick = () => { if (confirm("למחוק את " + c.name + "?")) { contacts.splice(i,1); saveContacts(); renderContacts(); } };
+    row.append(nm, nu, call, del); box.appendChild(row);
+  });
+}
+function addContact(n, name){
+  if (!n || !name) return;
+  const ex = contacts.find(c => c.n === n);
+  if (ex) ex.name = name; else contacts.push({ n, name });
+  contacts.sort((a,b) => a.name.localeCompare(b.name, "he")); saveContacts(); renderContacts();
+}
+function offerSave(n){
+  setTimeout(() => {
+    const name = prompt("לשמור את " + fmt(n) + " באנשי הקשר? הקלד שם:");
+    if (name && name.trim()) addContact(n, name.trim().slice(0,40));
+  }, 300);
+}
+$("addContactBtn").onclick = () => {
+  const n = normNum(prompt("מספר (099 ועוד 7 ספרות):") || "");
+  if (!n) { if (n === null) toast(""); return; }
+  const name = prompt("שם:");
+  if (name && name.trim()) addContact(n, name.trim().slice(0,40));
+};
+renderContacts();
 
 const pad = $("pad");
 ["1","2","3","4","5","6","7","8","9","","0",""].forEach(k => {
   const b = document.createElement("button");
   b.textContent = k; if (!k) { b.disabled = true; b.style.visibility = "hidden"; }
-  b.onclick = () => { if ($("dialInput").value.length < 6) $("dialInput").value += k; };
+  b.onclick = () => { if ($("dialInput").value.replace(/\D/g,"").length < 10) $("dialInput").value += k; };
   pad.appendChild(b);
 });
 $("delBtn").onclick = () => { $("dialInput").value = $("dialInput").value.slice(0,-1); };
-$("dialInput").addEventListener("input", e => { e.target.value = e.target.value.replace(/\D/g,"").slice(0,6); });
+$("dialInput").addEventListener("input", e => { e.target.value = e.target.value.replace(/[^\d-]/g,"").slice(0,12); });
 $("dialInput").addEventListener("keydown", e => { if (e.key === "Enter") $("callBtn").click(); });
 
 const isWeb = location.protocol.startsWith("http");
 if (isWeb) {
   $("shareBtn").hidden = false;
   $("shareBtn").onclick = async () => {
-    const link = location.origin + location.pathname + "?call=" + $("myId").textContent;
+    const link = location.origin + location.pathname + "?call=099" + $("myId").textContent;
     try{ await navigator.clipboard.writeText(link); $("shareBtn").textContent = "הקישור הועתק, הדבק אותו בוואטסאפ"; }
     catch(e){ $("shareBtn").textContent = link; }
     setTimeout(()=> $("shareBtn").textContent = "העתק קישור הזמנה (מי שלוחץ עליו מתקשר אליך)", 3000);
   };
-  const want = new URLSearchParams(location.search).get("call");
-  if (want && /^\d{6}$/.test(want)) {
-    $("dialInput").value = want;
+  const want = normNum(new URLSearchParams(location.search).get("call"));
+  if (want) {
+    $("dialInput").value = fmt(want);
     toast("");
-    $("callBtn").textContent = "התקשר ל־" + want;
+    $("callBtn").textContent = "התקשר ל־" + fmt(want);
   }
 }
 
 if (typeof Peer === "undefined") { setStatus("אין חיבור לאינטרנט"); }
 else {
-  let id = store("kw_id");
-  if (!id || !/^\d{6}$/.test(id)) { id = randId(); store("kw_id", id); }
+  let id = store("kw_num");
+  if (!normNum(id)) {
+    id = randId();
+    onStartResult = ok => { if (!ok) { onStartResult = null; start(randId()); } }; // first time: if the random one is taken, pick another
+  }
   start(id);
 }
 </script>

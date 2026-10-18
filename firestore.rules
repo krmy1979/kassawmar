@@ -1,0 +1,35 @@
+rules_version = '2';
+// kassawmar security rules (published in the Firebase console, kept here for reference)
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // numbers/{7 digits} -> { uid, created }. Whoever creates it owns it; nobody else can take or change it.
+    match /numbers/{num} {
+      allow get: if request.auth != null;
+      allow list: if false;
+      allow create: if request.auth != null
+        && num.matches('^[0-9]{7}$')
+        && request.resource.data.keys().hasOnly(['uid', 'created'])
+        && request.resource.data.uid == request.auth.uid;
+      allow delete: if request.auth != null && resource.data.uid == request.auth.uid;
+      allow update: if false;
+    }
+
+    // profiles/{uid} -> { num, peer, updated }. Readable by signed-in users (to place calls), writable only by the owner,
+    // and only pointing at a number the owner really holds.
+    match /profiles/{uid} {
+      allow get: if request.auth != null;
+      allow list: if false;
+      allow create, update: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['num', 'peer', 'updated'])
+        && request.resource.data.num is string
+        && getAfter(/databases/$(database)/documents/numbers/$(request.resource.data.num)).data.uid == uid;
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // private/{uid} -> { contacts, blocked }. Only the owner can see or change it.
+    match /private/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+  }
+}

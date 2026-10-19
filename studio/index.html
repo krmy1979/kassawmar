@@ -3,608 +3,1032 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0b0b10">
 <title>סטודיו כתוביות</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700;900&family=Heebo:wght@400;700;900&family=Secular+One&family=Suez+One&family=Karantina:wght@700&family=Amatic+SC:wght@700&family=Varela+Round&family=Frank+Ruhl+Libre:wght@700&display=swap">
 <style>
-/* Three screens: script → record (camera + prompter) → edit (captions, style, export). Phone-first, vertical 9:16 */
+/* Flow: home (script) → rec (camera + prompter) → edit (canvas caption overlay = exactly what gets exported) */
 :root{
-  --bg:#0e0f13; --surface:#1a1c23; --surface2:#242733; --fg:#f2f3f7; --muted:#a2a7b8; --line:#2f3342;
-  --accent:#ff3b6b; --accent2:#22d3ee; --accent-fg:#fff; --ok:#34d399; --font:"Rubik",system-ui,Arial,sans-serif; color-scheme:dark;
+  --bg:#0b0b10; --s1:#15161e; --s2:#1e2029; --s3:#2a2c39; --line:#2e3040; --fg:#f5f5fa; --mut:#9b9eb3;
+  --acc:#ff2d6f; --acc2:#25e0f0; --ok:#2fd28a; --warn:#ffcf4d; color-scheme:dark;
 }
-*{box-sizing:border-box} [hidden]{display:none!important}
-html,body{margin:0;height:100%} body{background:var(--bg);color:var(--fg);font-family:var(--font);font-size:16px;-webkit-tap-highlight-color:transparent}
-button,input,select,textarea{font:inherit;color:var(--fg)}
-button{cursor:pointer;border-radius:12px;border:1px solid var(--line);background:var(--surface);padding:10px 14px}
-button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-fg);font-weight:700}
-button.ghost{background:transparent}
-button:disabled{opacity:.45}
-button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid var(--accent2);outline-offset:2px}
-.wrap{max-width:560px;margin:0 auto;padding:16px;display:flex;flex-direction:column;gap:14px}
-h1{font-size:24px;margin:4px 0 0;font-weight:900} h1 span{color:var(--accent)}
-h2{font-size:18px;margin:0}
-.note{color:var(--muted);font-size:14px;line-height:1.5}
-.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:10px}
-textarea{width:100%;min-height:220px;resize:vertical;padding:12px;border-radius:12px;border:1px solid var(--line);background:var(--bg);line-height:1.6;font-size:17px}
-input[type=text],select{width:100%;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--bg)}
-input[type=range]{width:100%;accent-color:var(--accent)}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent} [hidden]{display:none!important}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font-family:"Rubik",system-ui,Arial,sans-serif;font-size:16px;overscroll-behavior:none}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer;border:0;border-radius:14px;background:var(--s2);padding:10px 14px;transition:transform .08s,background .15s}
+button:active{transform:scale(.96)}
+button:disabled{opacity:.4}
+button:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid var(--acc2);outline-offset:2px}
+.primary{background:linear-gradient(135deg,#ff2d6f,#ff6a3d);color:#fff;font-weight:700;box-shadow:0 6px 20px rgba(255,45,111,.35)}
+.ghost{background:transparent}
+.danger{background:rgba(255,80,80,.14);color:#ff8f8f}
+.chip{background:var(--s2);border-radius:999px;padding:7px 12px;font-size:14px}
+.chip.on{background:var(--acc2);color:#04212a;font-weight:700}
 .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .grow{flex:1}
-.err{color:#ff8a8a;font-size:14px;min-height:1em}
-label.lbl{font-size:13px;color:var(--muted)}
+.mut{color:var(--mut)} .small{font-size:13px}
+.err{color:#ff8f8f;font-size:14px;min-height:1em}
+input[type=range]{width:100%;accent-color:var(--acc);height:28px}
+textarea,input[type=text]{width:100%;border:1px solid var(--line);background:var(--bg);border-radius:12px;padding:10px 12px}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translateX(-50%);background:#fff;color:#111;padding:10px 16px;border-radius:999px;font-size:14px;z-index:100;box-shadow:0 8px 30px rgba(0,0,0,.4);max-width:90vw;text-align:center}
 
-/* ---- record screen ---- */
-#recScreen{position:fixed;inset:0;background:#000;z-index:10}
-#cam{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
-#cam.back{transform:none}
-.prompter{position:absolute;left:0;right:0;top:0;height:42%;overflow:hidden;background:linear-gradient(rgba(0,0,0,.72),rgba(0,0,0,.55) 70%,rgba(0,0,0,0));pointer-events:none}
-.prompter .txt{position:absolute;left:6%;right:6%;top:0;color:#fff;font-weight:700;line-height:1.45;text-align:center;will-change:transform;text-shadow:0 2px 6px rgba(0,0,0,.6)}
-.prompter .txt span{display:block;margin-bottom:.15em}
-.prompter .txt span.done{opacity:.35}
-.prompter .marker{position:absolute;left:3%;right:3%;height:2px;background:var(--accent2);opacity:.8}
-.recbar{position:absolute;left:0;right:0;bottom:0;padding:14px 14px calc(14px + env(safe-area-inset-bottom));background:linear-gradient(rgba(0,0,0,0),rgba(0,0,0,.75) 35%);display:flex;flex-direction:column;gap:10px}
-.recbar .row button{background:rgba(26,28,35,.85)}
-.recbtn{width:76px;height:76px;border-radius:50%;border:5px solid #fff;background:var(--accent);padding:0;margin:0 auto;display:block}
-.recbtn.on{border-radius:18px;width:64px;height:64px;margin:6px auto}
-.timer{position:absolute;top:calc(44% + 6px);left:50%;transform:translateX(-50%);background:rgba(0,0,0,.6);padding:4px 12px;border-radius:999px;font-variant-numeric:tabular-nums;font-size:15px}
-.timer .dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--accent);margin-left:6px;vertical-align:middle}
-.count{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:140px;font-weight:900;color:#fff;text-shadow:0 4px 20px rgba(0,0,0,.6);pointer-events:none}
-.topbtns{position:absolute;top:calc(8px + env(safe-area-inset-top));left:8px;display:flex;gap:6px;z-index:2}
-.topbtns button{background:rgba(0,0,0,.55);border-color:transparent;padding:6px 10px;font-size:14px}
+/* ---------- home ---------- */
+#home .wrap{max-width:560px;margin:0 auto;padding:calc(18px + env(safe-area-inset-top)) 16px 28px;display:flex;flex-direction:column;gap:14px}
+.brand{display:flex;align-items:center;gap:10px}
+.logo{width:42px;height:42px;border-radius:13px;background:linear-gradient(135deg,#ff2d6f,#25e0f0);display:grid;place-items:center;font-size:22px}
+.brand h1{margin:0;font-size:22px;font-weight:900;line-height:1.1}
+.brand p{margin:2px 0 0;font-size:13px;color:var(--mut)}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.steps div{background:var(--s1);border-radius:12px;padding:8px;font-size:12px;color:var(--mut);text-align:center}
+.steps b{display:block;color:var(--fg);font-size:14px}
+.card{background:var(--s1);border:1px solid var(--line);border-radius:18px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.card h2{margin:0;font-size:16px}
+#script{min-height:200px;resize:vertical;line-height:1.65;font-size:17px}
+.big{padding:16px;font-size:18px;border-radius:16px}
 
-/* ---- edit screen ---- */
-.stage{position:relative;width:100%;max-width:380px;margin:0 auto;aspect-ratio:9/16;background:#000;border-radius:16px;overflow:hidden}
+/* ---------- record ---------- */
+#rec{position:fixed;inset:0;background:#000;overflow:hidden;touch-action:none}
+#cam{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000}
+#cam.mirror{transform:scaleX(-1)}
+.grid{position:absolute;inset:0;pointer-events:none;background:
+  linear-gradient(to right,transparent calc(33.33% - .5px),rgba(255,255,255,.28) 0,rgba(255,255,255,.28) calc(33.33% + .5px),transparent 0,transparent calc(66.66% - .5px),rgba(255,255,255,.28) 0,rgba(255,255,255,.28) calc(66.66% + .5px),transparent 0),
+  linear-gradient(to bottom,transparent calc(33.33% - .5px),rgba(255,255,255,.28) 0,rgba(255,255,255,.28) calc(33.33% + .5px),transparent 0,transparent calc(66.66% - .5px),rgba(255,255,255,.28) 0,rgba(255,255,255,.28) calc(66.66% + .5px),transparent 0)}
+.prompter{position:absolute;left:0;right:0;top:0;overflow:hidden;background:linear-gradient(rgba(0,0,0,.78),rgba(0,0,0,.6) 75%,rgba(0,0,0,0));touch-action:none;cursor:grab;padding-top:env(safe-area-inset-top)}
+.prompter[data-h=s]{height:30%} .prompter[data-h=m]{height:40%} .prompter[data-h=l]{height:55%}
+.ptxt{position:absolute;left:7%;right:7%;top:0;will-change:transform;text-align:center;font-weight:700;line-height:1.35}
+.pl{padding:.12em 0;color:rgba(255,255,255,.55);transition:color .2s}
+.pl.cur{color:#fff}
+.pl.past{color:rgba(255,255,255,.22)}
+.pmark{position:absolute;inset-inline:0;height:0;pointer-events:none}
+.pmark::before,.pmark::after{content:"";position:absolute;top:-8px;border:8px solid transparent}
+.pmark::before{right:4px;border-right-color:var(--acc2)}
+.pmark::after{left:4px;border-left-color:var(--acc2)}
+.ppaused{position:absolute;left:50%;bottom:8px;transform:translateX(-50%);background:rgba(0,0,0,.7);border-radius:999px;padding:4px 12px;font-size:13px;pointer-events:none}
+.rtop{position:absolute;top:calc(8px + env(safe-area-inset-top));inset-inline:8px;display:flex;justify-content:space-between;gap:6px;z-index:3;pointer-events:none}
+.rtop>div{display:flex;gap:6px;pointer-events:auto}
+.rbtn{background:rgba(10,10,14,.6);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border-radius:999px;padding:8px 12px;font-size:14px;min-width:40px}
+.rbtn.on{background:var(--acc2);color:#04212a}
+.side{position:absolute;inset-inline-start:8px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:8px;z-index:3}
+.timer{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(200px + env(safe-area-inset-bottom));background:var(--acc);padding:5px 14px;border-radius:999px;font-variant-numeric:tabular-nums;font-weight:700;z-index:3}
+.count{position:absolute;inset:0;display:grid;place-items:center;font-size:150px;font-weight:900;text-shadow:0 6px 30px rgba(0,0,0,.6);pointer-events:none;z-index:4}
+.rbottom{position:absolute;left:0;right:0;bottom:0;padding:14px 14px calc(16px + env(safe-area-inset-bottom));background:linear-gradient(rgba(0,0,0,0),rgba(0,0,0,.8) 40%);display:flex;flex-direction:column;gap:12px;z-index:3}
+.zoomRow{display:flex;justify-content:center;gap:6px;align-items:center}
+.zoomRow input{max-width:220px}
+.recRow{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px}
+.recRow .sp{display:flex;align-items:center;gap:6px;justify-content:center}
+.recbtn{width:78px;height:78px;border-radius:50%;border:5px solid #fff;background:transparent;padding:5px;display:grid;place-items:center}
+.recbtn i{display:block;width:100%;height:100%;border-radius:50%;background:var(--acc);transition:all .2s}
+.recbtn.on i{width:28px;height:28px;border-radius:8px}
+.spv{min-width:54px;text-align:center;font-size:13px;line-height:1.2}
+.spv b{display:block;font-size:17px}
+.camErr{position:absolute;inset:0;display:grid;place-items:center;padding:30px;text-align:center;z-index:2}
+
+/* ---------- sheets ---------- */
+.sheet{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center}
+.sheet.see{background:transparent;pointer-events:none}
+.sheetIn{pointer-events:auto;width:100%;max-width:560px;background:var(--s1);border-radius:22px 22px 0 0;padding:14px 16px calc(16px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:12px;max-height:85dvh;overflow:auto;box-shadow:0 -10px 40px rgba(0,0,0,.5);border-top:1px solid var(--line)}
+.sheetIn h3{margin:0;font-size:17px}
+.lbl{font-size:13px;color:var(--mut)}
+.seg{display:flex;background:var(--bg);border-radius:12px;padding:3px;gap:3px}
+.seg button{flex:1;background:transparent;border-radius:10px;padding:8px 4px;font-size:14px}
+.seg button.on{background:var(--s3);color:#fff;font-weight:700}
+.tedit{display:grid;grid-template-columns:auto auto 1fr auto auto;gap:6px;align-items:center}
+.tedit span{font-variant-numeric:tabular-nums;direction:ltr;text-align:center;font-size:15px}
+.tedit button{padding:8px 12px}
+
+/* ---------- edit ---------- */
+#edit{position:fixed;inset:0;display:flex;flex-direction:column;background:var(--bg)}
+.etop{display:flex;align-items:center;gap:8px;padding:calc(8px + env(safe-area-inset-top)) 12px 8px}
+.etop h2{margin:0;font-size:16px;flex:1;text-align:center}
+.stageWrap{flex:none;height:min(52dvh,calc((100vw - 24px) * 16 / 9));display:flex;justify-content:center}
+.stage{position:relative;height:100%;aspect-ratio:9/16;background:#000;border-radius:16px;overflow:hidden}
 .stage video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-.cap{position:absolute;left:6%;right:6%;display:flex;flex-direction:column;align-items:center;gap:4px;pointer-events:none;text-align:center}
-.cap .l{display:inline;line-height:1.25;padding:.08em .3em;border-radius:.25em;-webkit-box-decoration-break:clone;box-decoration-break:clone}
-.caps{display:flex;flex-direction:column;gap:6px;max-height:360px;overflow:auto}
-.capRow{display:grid;grid-template-columns:auto 1fr auto;gap:6px;align-items:start;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:8px}
-.capRow.cur{border-color:var(--accent2)}
-.capRow .t{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;direction:ltr;cursor:pointer;padding-top:6px;white-space:nowrap}
-.capRow input{width:100%;padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:var(--surface);font-size:15px}
-.capRow .en{direction:ltr;text-align:left;margin-top:4px}
-.capRow .x{padding:4px 8px;font-size:13px}
-.seg{display:flex;border:1px solid var(--line);border-radius:12px;overflow:hidden}
-.seg button{flex:1;border:0;border-radius:0;background:transparent;padding:9px 6px;font-size:14px}
-.seg button.on{background:var(--accent2);color:#06202a;font-weight:700}
+.stage canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
+.playOv{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:64px;height:64px;border-radius:50%;background:rgba(0,0,0,.5);display:grid;place-items:center;font-size:26px;pointer-events:none}
+.hint{position:absolute;top:8px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.6);border-radius:999px;padding:4px 10px;font-size:12px;white-space:nowrap;pointer-events:none}
+.ctrl{display:flex;align-items:center;gap:10px;padding:8px 14px 0;direction:ltr}
+.ctrl .tm{font-size:12px;color:var(--mut);font-variant-numeric:tabular-nums;min-width:38px}
+.ctrl .pb{width:40px;height:40px;border-radius:50%;padding:0;background:var(--s2);font-size:16px}
+.tl{position:relative;height:34px;margin:6px 14px 0;background:var(--s1);border-radius:10px;overflow:hidden;direction:ltr;touch-action:none}
+.tl .b{position:absolute;top:5px;bottom:5px;background:rgba(37,224,240,.22);border:1px solid rgba(37,224,240,.55);border-radius:6px;font-size:10px;line-height:22px;padding:0 4px;overflow:hidden;white-space:nowrap;color:#bff7fc;direction:rtl}
+.tl .b.sel{background:rgba(255,45,111,.35);border-color:var(--acc);color:#fff}
+.tl .ph{position:absolute;top:0;bottom:0;width:2px;background:#fff;box-shadow:0 0 6px #fff;pointer-events:none}
+.tabs{display:flex;gap:4px;padding:10px 12px 0}
+.tabs button{flex:1;background:transparent;border-radius:12px;padding:8px 4px;font-size:13px;color:var(--mut);display:flex;flex-direction:column;align-items:center;gap:2px}
+.tabs button span{font-size:19px}
+.tabs button.on{background:var(--s1);color:#fff}
+.panel{flex:1;overflow:auto;padding:10px 12px calc(16px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:10px}
+.panel>*,.sheetIn>*,.capList>*{flex-shrink:0}
+.sheetIn .row button{font-size:14px;padding:9px 10px}
+.capList{display:flex;flex-direction:column;gap:6px}
+.cr{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center;background:var(--s1);border:1px solid transparent;border-radius:12px;padding:8px 10px;text-align:right;width:100%}
+.cr.cur{border-color:var(--acc2)}
+.cr .t{font-size:11px;color:var(--mut);font-variant-numeric:tabular-nums;direction:ltr}
+.cr .he{font-size:15px}
+.cr .en{font-size:12px;color:var(--mut);direction:ltr;text-align:left}
+.cr .ed{background:var(--s3);padding:6px 10px;font-size:13px;border-radius:10px}
+.presets{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px}
+.presets button{flex:none;width:92px;height:64px;border-radius:14px;background:#222533;display:grid;place-items:center;font-size:17px;font-weight:900;border:2px solid transparent}
+.presets button.on{border-color:var(--acc)}
 .fonts{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
-.fonts button{padding:8px 4px;font-size:18px}
-.fonts button.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
-.swatches{display:flex;gap:6px;flex-wrap:wrap}
-.swatches button{width:34px;height:34px;border-radius:50%;padding:0;border:2px solid var(--line)}
-.swatches button.on{border-color:#fff;box-shadow:0 0 0 2px var(--accent)}
-.progress{height:8px;border-radius:4px;background:var(--bg);overflow:hidden;border:1px solid var(--line)}
-.progress div{height:100%;width:0;background:var(--accent);transition:width .2s}
+.fonts button{padding:10px 4px;font-size:19px;border:2px solid transparent}
+.fonts button.on{border-color:var(--acc)}
+.sw{display:flex;gap:8px;flex-wrap:wrap}
+.sw button{width:34px;height:34px;border-radius:50%;padding:0;border:2px solid rgba(255,255,255,.15)}
+.sw button.on{border-color:#fff;box-shadow:0 0 0 3px var(--acc)}
+.tog{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--s1);padding:10px 12px;border-radius:12px}
+.tog input{width:22px;height:22px;accent-color:var(--acc)}
+.prog{height:8px;border-radius:4px;background:var(--s3);overflow:hidden}
+.prog div{height:100%;width:0;background:linear-gradient(90deg,#ff2d6f,#ff6a3d);transition:width .2s}
+.exOv{position:fixed;inset:0;z-index:60;background:rgba(8,8,12,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:30px;text-align:center}
+.exOv .pct{font-size:46px;font-weight:900}
+.exOv .prog{width:min(320px,80vw)}
 </style>
 </head>
 <body>
 
-<!-- ============ 1. SCRIPT ============ -->
-<section id="scriptScreen">
+<!-- ================= HOME ================= -->
+<section id="home" class="screen">
   <div class="wrap">
-    <h1>סטודיו <span>כתוביות</span></h1>
-    <div class="note">כתבו את מה שתרצו להגיד. בזמן הצילום הטקסט יזוז מול העיניים, ואחרי הצילום הוא יהפוך לכתוביות על הסרטון.</div>
+    <div class="brand"><div class="logo">🎬</div><div><h1>סטודיו כתוביות</h1><p>טלפרומפטר, צילום וכתוביות לטיקטוק</p></div></div>
+    <div class="steps"><div><b>1. כותבים</b>מה להגיד</div><div><b>2. מצלמים</b>הטקסט רץ מולכם</div><div><b>3. כתוביות</b>עריכה ושמירה</div></div>
     <div class="card">
-      <label class="lbl" for="script">התסריט שלכם</label>
+      <div class="row"><h2 class="grow">התסריט</h2><button class="chip" id="clearScript">נקה</button></div>
       <textarea id="script" placeholder="היי לכולם! היום אני רוצה לספר לכם על…"></textarea>
-      <div class="row note" id="scriptStats"></div>
+      <div class="small mut" id="stats">כל שורה בתסריט תהפוך לכתובית. שורות קצרות = כתוביות קצרות.</div>
     </div>
     <div class="card">
-      <h2>הגדרות טלפרומפטר</h2>
-      <label class="lbl" for="speed">מהירות: <b id="speedVal"></b> מילים בדקה</label>
-      <input type="range" id="speed" min="60" max="240" step="5" value="130">
-      <label class="lbl" for="psize">גודל הטקסט</label>
-      <input type="range" id="psize" min="22" max="56" step="1" value="34">
-      <div class="note">טיפ: הטקסט מופיע בחלק העליון של המסך, קרוב למצלמה, כדי שייראה שאתם מסתכלים לצופים בעיניים.</div>
+      <h2>קצב הקריאה</h2>
+      <div class="row"><span class="lbl grow">מהירות הטקסט</span><b id="speedVal"></b></div>
+      <input type="range" id="speed" min="60" max="240" step="5" aria-label="מהירות">
+      <div class="small mut">אפשר לשנות מהירות גם בזמן הצילום.</div>
     </div>
-    <button class="primary" id="goRec" style="padding:16px;font-size:18px">🎥 לצילום</button>
-    <div class="err" id="scriptErr" role="status"></div>
-    <div class="row">
-      <label class="lbl grow">או: יש לכם כבר סרטון?</label>
-      <button id="uploadBtn">העלאת סרטון קיים</button>
-      <input type="file" id="uploadInput" accept="video/*" hidden>
-    </div>
+    <button class="primary big" id="goRec">🎥 לצילום</button>
+    <button class="big" id="backToEdit" hidden>✏️ חזרה לעריכת הסרטון האחרון</button>
+    <button id="importBtn">📁 יש לי כבר סרטון. הוספת כתוביות לסרטון קיים</button>
+    <input type="file" id="importInput" accept="video/*" hidden>
+    <div class="err" id="homeErr" role="status"></div>
   </div>
 </section>
 
-<!-- ============ 2. RECORD ============ -->
-<section id="recScreen" hidden>
+<!-- ================= RECORD ================= -->
+<section id="rec" class="screen" hidden>
   <video id="cam" autoplay playsinline muted></video>
-  <div class="prompter" id="prompter"><div class="txt" id="ptxt"></div><div class="marker" id="pmarker"></div></div>
-  <div class="topbtns">
-    <button id="recBack">✕ סגור</button>
-    <button id="flipBtn">🔄 מצלמה</button>
+  <div class="grid" id="grid" hidden></div>
+  <div class="camErr" id="camErr" hidden></div>
+  <div class="prompter" id="prompter" data-h="m">
+    <div class="ptxt" id="ptxt"></div>
+    <div class="pmark" id="pmark"></div>
+    <div class="ppaused" id="ppaused" hidden>⏸ הטקסט עצור. גע כדי להמשיך, גרור כדי לגלול</div>
   </div>
-  <div class="timer" id="timer" hidden><span class="dot"></span><span id="timerTxt">00:00</span></div>
+  <div class="rtop" id="rtop">
+    <div><button class="rbtn" id="recClose" aria-label="סגור">✕</button></div>
+    <div>
+      <button class="rbtn" id="qualBtn" aria-label="איכות"></button>
+      <button class="rbtn" id="torchBtn" hidden aria-label="פנס">🔦</button>
+      <button class="rbtn" id="flipBtn" aria-label="החלף מצלמה">🔄</button>
+      <button class="rbtn" id="setBtn" aria-label="הגדרות">⚙️</button>
+    </div>
+  </div>
+  <div class="side">
+    <button class="rbtn" id="aPlus" aria-label="הגדל טקסט">A+</button>
+    <button class="rbtn" id="aMinus" aria-label="הקטן טקסט">A−</button>
+  </div>
+  <div class="timer" id="timer" hidden>● <span id="timerTxt">00:00</span></div>
   <div class="count" id="count" hidden></div>
-  <div class="recbar">
-    <div class="row">
-      <button class="grow" id="slower">🐢 לאט יותר</button>
-      <span id="speedLive" style="min-width:70px;text-align:center;font-size:14px"></span>
-      <button class="grow" id="faster">🐇 מהר יותר</button>
+  <div class="rbottom">
+    <div class="zoomRow" id="zoomRow" hidden>
+      <span class="small">🔍</span><input type="range" id="zoom" aria-label="זום"><b class="small" id="zoomVal" style="min-width:36px"></b>
     </div>
-    <div class="row">
-      <button class="grow" id="pauseP">⏸ עצור טקסט</button>
-      <button class="grow" id="resetP">⏮ לתחילת הטקסט</button>
-    </div>
-    <button class="recbtn" id="recBtn" aria-label="התחל הקלטה"></button>
-    <div class="err" id="recErr" role="status" style="text-align:center"></div>
-  </div>
-</section>
-
-<!-- ============ 3. EDIT ============ -->
-<section id="editScreen" hidden>
-  <div class="wrap">
-    <div class="row"><button class="ghost" id="editBack">→ צילום חדש</button><span class="grow"></span><h2>עריכת כתוביות</h2></div>
-    <div class="stage" id="stage">
-      <video id="player" playsinline></video>
-      <div class="cap" id="capPreview"></div>
-    </div>
-    <div class="row">
-      <button class="grow" id="playBtn">▶ נגן</button>
-    </div>
-
-    <div class="card">
-      <h2>הכתוביות</h2>
-      <div class="seg" id="srcSeg">
-        <button data-src="script" class="on">לפי התסריט</button>
-        <button data-src="speech">לפי מה שזוהה בדיבור</button>
-      </div>
-      <div class="note" id="srcNote"></div>
-      <div class="caps" id="caps"></div>
-      <div class="row">
-        <button class="small" id="addCap">+ כתובית בנקודה הנוכחית</button>
-        <span class="grow"></span>
-        <button id="shiftEarlier" title="כל הכתוביות מוקדם יותר">« 0.2ש׳</button>
-        <button id="shiftLater" title="כל הכתוביות מאוחר יותר">0.2ש׳ »</button>
-      </div>
-    </div>
-
-    <div class="card">
-      <h2>אנגלית</h2>
-      <div class="note">אפשר להוסיף שורת תרגום לאנגלית מתחת לכל כתובית. התרגום האוטומטי נעזר בשירות התרגום החינמי MyMemory (הטקסט נשלח אליו), וכדאי לעבור עליו ולתקן.</div>
-      <div class="row"><button class="grow" id="translateAll">🌍 תרגם הכול לאנגלית</button></div>
-      <div class="progress" id="trProg" hidden><div></div></div>
-      <div class="err" id="trErr" role="status"></div>
-    </div>
-
-    <div class="card">
-      <h2>עיצוב</h2>
-      <label class="lbl">שפה על המסך</label>
-      <div class="seg" id="langSeg"><button data-l="he" class="on">עברית</button><button data-l="both">עברית + אנגלית</button><button data-l="en">אנגלית</button></div>
-      <label class="lbl">גופן</label>
-      <div class="fonts" id="fonts"></div>
-      <label class="lbl">צבע טקסט</label>
-      <div class="swatches" id="colors"></div>
-      <label class="lbl">סגנון</label>
-      <div class="seg" id="boxSeg"><button data-b="box" class="on">רקע</button><button data-b="outline">קו מתאר</button><button data-b="shadow">צל</button><button data-b="none">נקי</button></div>
-      <label class="lbl" for="csize">גודל</label>
-      <input type="range" id="csize" min="40" max="110" step="2" value="64">
-      <label class="lbl">מיקום</label>
-      <div class="seg" id="posSeg"><button data-p="top">למעלה</button><button data-p="mid">באמצע</button><button data-p="low" class="on">למטה</button></div>
-    </div>
-
-    <div class="card">
-      <h2>שמירת הסרטון</h2>
-      <div class="note">הסרטון נשמר בגודל 1080×1920 (מתאים לטיקטוק), עם הכתוביות צרובות עליו. השמירה לוקחת בערך את אורך הסרטון.</div>
-      <button class="primary" id="exportBtn" style="padding:14px">⬇ שמור סרטון עם כתוביות</button>
-      <div class="progress" id="exProg" hidden><div></div></div>
-      <div class="note" id="exNote"></div>
-      <a id="dlLink" hidden class="note" style="color:var(--accent2)"></a>
+    <div class="recRow">
+      <div class="sp"><button class="rbtn" id="slower" aria-label="לאט יותר">−</button><div class="spv"><b id="spv"></b>מהירות</div><button class="rbtn" id="faster" aria-label="מהר יותר">+</button></div>
+      <button class="recbtn" id="recBtn" aria-label="התחל הקלטה"><i></i></button>
+      <div class="sp"><button class="rbtn" id="pauseP">⏸ טקסט</button><button class="rbtn" id="resetP" aria-label="לתחילת הטקסט">⏮</button></div>
     </div>
   </div>
 </section>
+
+<div class="sheet" id="recSheet" hidden><div class="sheetIn">
+  <div class="row"><h3 class="grow">הגדרות צילום</h3><button id="recSheetClose">סיום</button></div>
+  <div class="lbl">איכות וידאו</div>
+  <div class="seg" id="segQual"><button data-v="720">720p</button><button data-v="1080">1080p (מומלץ)</button><button data-v="4k">4K</button></div>
+  <div class="lbl">תצוגת מצלמה</div>
+  <div class="seg" id="segFit"><button data-v="cover">ממלא מסך (9:16)</button><button data-v="contain">כל התמונה, בלי חיתוך</button></div>
+  <div class="lbl">גובה אזור הטקסט</div>
+  <div class="seg" id="segPH"><button data-v="s">קטן</button><button data-v="m">בינוני</button><button data-v="l">גדול</button></div>
+  <div class="lbl">ספירה לאחור</div>
+  <div class="seg" id="segCD"><button data-v="0">בלי</button><button data-v="3">3 שניות</button><button data-v="5">5 שניות</button></div>
+  <label class="tog"><span>תצוגת מראה במצלמה הקדמית</span><input type="checkbox" id="optMirror"></label>
+  <label class="tog"><span>קווי עזר (רשת)</span><input type="checkbox" id="optGrid"></label>
+  <div class="small mut" id="camInfo"></div>
+</div></div>
+
+<!-- ================= EDIT ================= -->
+<section id="edit" class="screen" hidden>
+  <div class="etop">
+    <button class="ghost" id="editBack">→ בית</button>
+    <h2>עריכה</h2>
+    <button class="primary" id="exportTop">שמירה ⬇</button>
+  </div>
+  <div class="stageWrap"><div class="stage" id="stage">
+    <video id="player" playsinline preload="auto"></video>
+    <canvas id="ov"></canvas>
+    <div class="playOv" id="playOv">▶</div>
+    <div class="hint" id="hint">גררו את הכתובית כדי להזיז · געו בה כדי לערוך</div>
+  </div></div>
+  <div class="ctrl">
+    <button class="pb" id="playBtn" aria-label="נגן">▶</button>
+    <span class="tm" id="tCur">0:00</span>
+    <input type="range" id="scrub" min="0" max="1000" value="0" class="grow" aria-label="מיקום בסרטון">
+    <span class="tm" id="tDur">0:00</span>
+  </div>
+  <div class="tl" id="tl"><div id="tlCaps"></div><div class="ph" id="ph"></div></div>
+  <div class="tabs" id="tabs">
+    <button data-tab="caps" class="on"><span>💬</span>כתוביות</button>
+    <button data-tab="style"><span>🎨</span>עיצוב</button>
+    <button data-tab="lang"><span>🌍</span>אנגלית</button>
+    <button data-tab="save"><span>⬇</span>שמירה</button>
+  </div>
+
+  <div class="panel" id="p-caps">
+    <div class="seg" id="segSrc"><button data-v="script">לפי התסריט</button><button data-v="speech">לפי זיהוי הדיבור</button></div>
+    <div class="small mut" id="srcNote"></div>
+    <div class="row">
+      <button class="grow" id="addCap">＋ כתובית בנקודה הנוכחית</button>
+      <button id="shiftE" aria-label="הכול מוקדם יותר">⏪ 0.2</button>
+      <button id="shiftL" aria-label="הכול מאוחר יותר">0.2 ⏩</button>
+    </div>
+    <div class="capList" id="capList"></div>
+  </div>
+
+  <div class="panel" id="p-style" hidden>
+    <div class="lbl">סגנון מוכן</div>
+    <div class="presets" id="presets"></div>
+    <div class="lbl">גופן</div>
+    <div class="fonts" id="fonts"></div>
+    <div class="lbl">צבע הטקסט</div>
+    <div class="sw" id="colors"></div>
+    <div class="lbl">אפקט</div>
+    <div class="seg" id="segBox"><button data-v="outline">קו מתאר</button><button data-v="box">רקע</button><button data-v="pill">בועה</button><button data-v="neon">ניאון</button><button data-v="shadow">צל</button></div>
+    <label class="tog"><span>הדגשת המילה שנאמרת (כמו קריוקי)</span><input type="checkbox" id="optKar"></label>
+    <div class="lbl" id="hlLbl">צבע ההדגשה</div>
+    <div class="sw" id="hlColors"></div>
+    <label class="tog"><span>אנימציית קפיצה בכניסה</span><input type="checkbox" id="optAnim"></label>
+    <div class="row"><span class="lbl grow">גודל</span><b id="sizeVal" class="small"></b></div>
+    <input type="range" id="csize" min="40" max="130" step="2" aria-label="גודל כתוביות">
+    <div class="lbl">מיקום (אפשר גם לגרור על הסרטון)</div>
+    <div class="seg" id="segPos"><button data-v=".2">למעלה</button><button data-v=".5">אמצע</button><button data-v=".72">למטה</button></div>
+  </div>
+
+  <div class="panel" id="p-lang" hidden>
+    <div class="lbl">מה מופיע על המסך</div>
+    <div class="seg" id="segLang"><button data-v="he">עברית</button><button data-v="both">עברית + אנגלית</button><button data-v="en">רק אנגלית</button></div>
+    <button class="primary" id="trAll">🌍 תרגם את כל הכתוביות לאנגלית</button>
+    <div class="prog" id="trProg" hidden><div></div></div>
+    <div class="err" id="trErr" role="status"></div>
+    <div class="small mut">התרגום נעשה בשירות התרגום החינמי MyMemory, ולכן הטקסט נשלח אליו. התרגום האוטומטי לא תמיד מדויק. אפשר לתקן כל שורה בלשונית "כתוביות" ← ✏️.</div>
+  </div>
+
+  <div class="panel" id="p-save" hidden>
+    <div class="card">
+      <h2>שמירת הסרטון עם הכתוביות</h2>
+      <div class="small mut">הסרטון נשמר בגודל 1080×1920 (9:16, מתאים לטיקטוק וליוטיוב שורטס), עם הכתוביות צרובות עליו. השמירה לוקחת בערך כמו אורך הסרטון, כי הסרטון מתנגן תוך כדי.</div>
+      <div class="lbl">תצוגת הסרטון</div>
+      <div class="seg" id="segFit2"><button data-v="cover">ממלא מסך</button><button data-v="contain">כל התמונה</button></div>
+      <button class="primary big" id="exportBtn">⬇ שמור סרטון</button>
+    </div>
+    <div id="result" class="card" hidden>
+      <h2>✅ הסרטון מוכן</h2>
+      <div class="small mut" id="resNote"></div>
+      <button class="primary" id="shareBtn" hidden>📤 שתף / שמור לגלריה</button>
+      <a id="dlLink" class="chip" style="text-align:center;text-decoration:none;color:inherit">⬇ הורדה כקובץ</a>
+    </div>
+  </div>
+</section>
+
+<!-- caption editor sheet (transparent backdrop so the video stays visible) -->
+<div class="sheet see" id="capSheet" hidden><div class="sheetIn">
+  <div class="row"><h3 class="grow" id="csTitle">עריכת כתובית</h3><button class="primary" id="csDone">סיום</button></div>
+  <textarea id="csHe" rows="2" aria-label="טקסט הכתובית"></textarea>
+  <div class="row"><input type="text" id="csEn" dir="ltr" placeholder="English (optional)" class="grow" aria-label="תרגום"><button id="csTr">🌍</button></div>
+  <div class="tedit"><span class="lbl">התחלה</span><button data-a="s-1">−</button><span id="csS"></span><button data-a="s+1">+</button><button data-a="sNow" class="small">כאן</button></div>
+  <div class="tedit"><span class="lbl">סוף</span><button data-a="e-1">−</button><span id="csE"></span><button data-a="e+1">+</button><button data-a="eNow" class="small">כאן</button></div>
+  <div class="row">
+    <button id="csPrev" class="grow">→ הקודמת</button>
+    <button id="csSplit" class="grow">✂ פצל כאן</button>
+    <button id="csMerge" class="grow">🔗 חבר לבאה</button>
+    <button id="csDel" class="danger">🗑</button>
+    <button id="csNext" class="grow">הבאה ←</button>
+  </div>
+</div></div>
+
+<div class="exOv" id="exOv" hidden>
+  <div style="font-size:40px">🎬</div>
+  <div class="pct" id="exPct">0%</div>
+  <div class="prog"><div id="exBar"></div></div>
+  <div class="mut">שומר את הסרטון עם הכתוביות… השאירו את המסך פתוח.</div>
+  <button id="exCancel">ביטול</button>
+</div>
 
 <script>
 const $ = id => document.getElementById(id);
-const store = (k, v) => { try { if (v === undefined) return JSON.parse(localStorage.getItem(k)); localStorage.setItem(k, JSON.stringify(v)); } catch(e){ return null; } };
-function show(id){ for (const s of ["scriptScreen","recScreen","editScreen"]) $(s).hidden = s !== id; }
-const fmtT = t => { t = Math.max(0, t); const m = Math.floor(t / 60), s = (t % 60); return String(m).padStart(2,"0") + ":" + s.toFixed(1).padStart(4,"0"); };
-
-// ================= 1. SCRIPT =================
-$("script").value = store("st_script") || "";
-$("speed").value = store("st_speed") || 130;
-$("psize").value = store("st_psize") || 34;
-function words(t){ return t.trim().split(/\s+/).filter(Boolean); }
-function updStats(){
-  const n = words($("script").value).length, wpm = +$("speed").value;
-  $("speedVal").textContent = wpm;
-  $("scriptStats").textContent = n ? n + " מילים · בערך " + Math.max(1, Math.round(n / wpm * 60)) + " שניות" : "";
-  store("st_script", $("script").value); store("st_speed", wpm); store("st_psize", +$("psize").value);
+const LS = {
+  get(k, d){ try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch(e){ return d; } },
+  set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} }
+};
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const words = t => t.trim().split(/\s+/).filter(Boolean);
+const fmt = t => { t = Math.max(0, t || 0); return Math.floor(t / 60) + ":" + String(Math.floor(t % 60)).padStart(2, "0"); };
+const fmtP = t => { t = Math.max(0, t || 0); return Math.floor(t / 60) + ":" + (t % 60).toFixed(1).padStart(4, "0"); };
+let toastT;
+function toast(m){ let el = document.querySelector(".toast"); if (!el) { el = document.createElement("div"); el.className = "toast"; el.setAttribute("role","status"); document.body.appendChild(el); }
+  el.textContent = m; el.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => el.hidden = true, 3200); }
+function show(id){ for (const s of document.querySelectorAll(".screen")) s.hidden = s.id !== id; }
+function segInit(id, get, set){
+  const el = $(id);
+  const paint = () => { for (const b of el.querySelectorAll("button")) b.classList.toggle("on", b.dataset.v === String(get())); };
+  el.addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; set(b.dataset.v); paint(); });
+  paint(); return paint;
 }
-for (const id of ["script","speed","psize"]) $(id).addEventListener("input", updStats);
-updStats();
 
-// Caption chunks: TikTok-style short phrases (≈ up to 5 words, break at punctuation)
+// settings
+const S = Object.assign({ speed: 130, psize: 34, ph: "m", cd: 3, quality: "1080", fit: "cover", mirror: true, grid: false }, LS.get("st2_set", {}));
+const saveS = () => LS.set("st2_set", S);
+
+// ================= HOME =================
+$("script").value = LS.get("st_script", "") || "";
+$("speed").value = S.speed;
+function updHome(){
+  const n = words($("script").value).length; S.speed = +$("speed").value; saveS();
+  $("speedVal").textContent = S.speed + " מילים בדקה";
+  $("stats").textContent = n ? n + " מילים · " + chunkScript($("script").value).length + " כתוביות · בערך " + Math.max(1, Math.round(n / S.speed * 60)) + " שניות"
+    : "כל שורה בתסריט תהפוך לכתובית. שורות קצרות = כתוביות קצרות.";
+  LS.set("st_script", $("script").value);
+}
+$("script").addEventListener("input", updHome); $("speed").addEventListener("input", updHome); updHome();
+$("clearScript").onclick = () => { if (!$("script").value || confirm("למחוק את התסריט?")) { $("script").value = ""; updHome(); } };
+
+// a caption = up to 5 words / ~30 chars; breaks at punctuation and at line breaks
 function chunkScript(t){
   const out = [];
   for (const para of t.split(/\n+/)) {
-    let cur = [];
+    let cur = [], len = 0;
     for (const w of words(para)) {
-      cur.push(w);
-      if (cur.length >= 5 || /[.!?,;:…]$/.test(w) && cur.length >= 2) { out.push(cur.join(" ")); cur = []; }
+      cur.push(w); len += w.length + 1;
+      if (cur.length >= 5 || len >= 30 || (/[.!?,;:…]$/.test(w) && cur.length >= 2)) { out.push(cur.join(" ")); cur = []; len = 0; }
     }
     if (cur.length) out.push(cur.join(" "));
   }
   return out;
 }
 
-$("goRec").onclick = async () => {
-  $("scriptErr").textContent = "";
-  if (!words($("script").value).length) { $("scriptErr").textContent = "כתבו קודם את מה שתרצו להגיד."; return; }
-  await openCamera();
-};
-$("uploadBtn").onclick = () => $("uploadInput").click();
-$("uploadInput").onchange = () => {
-  const f = $("uploadInput").files[0]; if (!f) return;
-  recBlob = f; speechSegs = []; scriptTimes = [];
-  chunks = chunkScript($("script").value);
-  openEditor(true);
+$("goRec").onclick = () => { $("homeErr").textContent = ""; openCamera(); };
+$("backToEdit").onclick = () => { show("edit"); startEditLoop(); };
+$("importBtn").onclick = () => $("importInput").click();
+$("importInput").onchange = () => {
+  const f = $("importInput").files[0]; if (!f) return;
+  recBlob = f; recDur = 0; times = []; speechSegs = []; chunks = chunkScript($("script").value);
+  $("importInput").value = "";
+  openEditor(false);
 };
 
-// ================= 2. RECORD =================
-let camStream = null, facing = "user", recorder = null, recChunks = [], recBlob = null, recMime = "";
-let t0 = 0, recording = false, timerInt = null;
-let chunks = [], chunkEls = [], scriptTimes = [], speechSegs = [];
-let pPos = 0, pPaused = false, pLast = 0, raf = 0, wpm = 130;
+// ================= RECORD =================
+const QUAL = { "720": [1280, 720], "1080": [1920, 1080], "4k": [3840, 2160] };
+let stream = null, vtrack = null, facing = "user", recorder = null, parts = [], recBlob = null, recDur = 0;
+let chunks = [], lineEls = [], times = [], speechSegs = [];
+let pPos = 0, pPaused = false, pLast = 0, raf = 0, recording = false, t0 = 0, timerInt = 0, lastCur = -2, torchOn = false;
 
+function stopStream(){ if (stream) stream.getTracks().forEach(t => t.stop()); stream = null; vtrack = null; }
 async function openCamera(){
-  $("recErr").textContent = "";
-  show("recScreen");
-  buildPrompter();
+  show("rec"); buildPrompter(); applyRecUI();
+  $("camErr").hidden = true; stopStream();
+  const [w, h] = QUAL[S.quality];
+  const audio = { echoCancellation: true, noiseSuppression: true, autoGainControl: true };
   try {
-    if (camStream) camStream.getTracks().forEach(t => t.stop());
-    camStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: facing, width: { ideal: 1080 }, height: { ideal: 1920 }, aspectRatio: { ideal: 9/16 }, frameRate: { ideal: 30 } },
-      audio: { echoCancellation: true, noiseSuppression: true }
-    });
-    $("cam").srcObject = camStream; $("cam").classList.toggle("back", facing !== "user");
+    // ask for a landscape-style resolution: phones rotate it to portrait themselves and keep full sensor quality
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: facing, width: { ideal: w }, height: { ideal: h }, frameRate: { ideal: 30 } }, audio });
   } catch(e) {
-    $("recErr").textContent = "אין גישה למצלמה או למיקרופון. אשרו גישה בהגדרות הדפדפן ונסו שוב. אם הקישור נפתח בתוך וואטסאפ, פתחו אותו ב-Chrome או ב-Safari.";
-  }
-}
-$("flipBtn").onclick = () => { if (recording) return; facing = facing === "user" ? "environment" : "user"; openCamera(); };
-$("recBack").onclick = () => { if (recording) stopRec(true); closeCamera(); show("scriptScreen"); };
-function closeCamera(){ cancelAnimationFrame(raf); if (camStream) { camStream.getTracks().forEach(t => t.stop()); camStream = null; } }
-
-function buildPrompter(){
-  wpm = +$("speed").value;
-  chunks = chunkScript($("script").value);
-  const box = $("ptxt"); box.textContent = ""; box.style.fontSize = $("psize").value + "px";
-  chunkEls = chunks.map((c, i) => { const s = document.createElement("span"); s.textContent = c + " "; box.appendChild(s); return s; });
-  pPos = 0; pPaused = false; scriptTimes = new Array(chunks.length).fill(null);
-  $("pauseP").textContent = "⏸ עצור טקסט";
-  layoutPrompter(); cancelAnimationFrame(raf); pLast = performance.now(); raf = requestAnimationFrame(tick);
-  updSpeedLive();
-}
-// reading line sits at 38% of the prompter box height
-function markerY(){ return $("prompter").clientHeight * 0.38; }
-function layoutPrompter(){ $("pmarker").style.top = markerY() + "px"; $("ptxt").style.transform = `translateY(${markerY() - pPos}px)`; }
-function updSpeedLive(){ $("speedLive").textContent = wpm + " מ׳/ד׳"; }
-
-// scroll speed: pixels per second derived from words/minute and the text's measured words-per-pixel
-function pxPerSec(){
-  const h = $("ptxt").scrollHeight || 1, n = Math.max(1, words($("script").value).length);
-  return (h / n) * (wpm / 60);
-}
-function tick(now){
-  const dt = Math.min(0.1, (now - pLast) / 1000); pLast = now;
-  const running = recording || !$("count").hidden ? recording : false;
-  if (running && !pPaused) pPos = Math.min(pPos + pxPerSec() * dt, $("ptxt").scrollHeight);
-  layoutPrompter();
-  // which chunk is on the reading line → record its start time
-  if (recording) {
-    const t = (performance.now() - t0) / 1000;
-    for (let i = 0; i < chunkEls.length; i++) {
-      const el = chunkEls[i];
-      if (scriptTimes[i] === null && el.offsetTop <= pPos) { scriptTimes[i] = t; }
-      el.classList.toggle("done", el.offsetTop + el.offsetHeight < pPos - 4);
+    try { stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: facing }, audio: true }); }
+    catch(e2) {
+      $("camErr").hidden = false;
+      $("camErr").innerHTML = "<div>📷<br><br>אין גישה למצלמה או למיקרופון.<br>אשרו גישה בהגדרות הדפדפן ונסו שוב.<br><br><span class='small mut'>אם הקישור נפתח מתוך וואטסאפ או פייסבוק, פתחו אותו ב-Chrome או ב-Safari.</span></div>";
+      return;
     }
   }
+  vtrack = stream.getVideoTracks()[0];
+  const cam = $("cam"); cam.srcObject = stream;
+  cam.onloadedmetadata = () => { cam.play().catch(() => {}); camInfo(); };
+  setupCamCaps();
+}
+function camInfo(){
+  const cam = $("cam"), w = cam.videoWidth, h = cam.videoHeight;
+  const short = Math.min(w, h);
+  $("qualBtn").textContent = short >= 2000 ? "4K" : short ? short + "p" : S.quality;
+  $("camInfo").textContent = w ? "המצלמה מצלמת עכשיו ב-" + w + "×" + h + (short < Math.min(...QUAL[S.quality]) ? ". זו האיכות הגבוהה ביותר שהמצלמה הזאת נותנת לדפדפן." : ".") : "";
+}
+function setupCamCaps(){
+  const caps = vtrack && vtrack.getCapabilities ? vtrack.getCapabilities() : {};
+  const st = vtrack && vtrack.getSettings ? vtrack.getSettings() : {};
+  if (caps.zoom && caps.zoom.max > caps.zoom.min) {
+    const z = $("zoom"); z.min = caps.zoom.min; z.max = Math.min(caps.zoom.max, 10); z.step = caps.zoom.step || 0.1; z.value = st.zoom || caps.zoom.min;
+    $("zoomVal").textContent = (+z.value).toFixed(1) + "x"; $("zoomRow").hidden = false;
+  } else $("zoomRow").hidden = true;
+  $("torchBtn").hidden = !caps.torch; torchOn = false; $("torchBtn").classList.remove("on");
+}
+$("zoom").oninput = () => { $("zoomVal").textContent = (+$("zoom").value).toFixed(1) + "x"; vtrack && vtrack.applyConstraints({ advanced: [{ zoom: +$("zoom").value }] }).catch(() => {}); };
+$("torchBtn").onclick = () => { torchOn = !torchOn; $("torchBtn").classList.toggle("on", torchOn); vtrack && vtrack.applyConstraints({ advanced: [{ torch: torchOn }] }).catch(() => {}); };
+$("flipBtn").onclick = () => { if (recording) return; facing = facing === "user" ? "environment" : "user"; openCamera(); };
+$("qualBtn").onclick = () => { if (recording) return; const order = ["720", "1080", "4k"]; S.quality = order[(order.indexOf(S.quality) + 1) % 3]; saveS(); paintQual(); openCamera(); toast("איכות: " + (S.quality === "4k" ? "4K" : S.quality + "p")); };
+$("recClose").onclick = () => { if (recording) { if (!confirm("לעצור ולמחוק את הצילום?")) return; stopRec(true); } closeRec(); show("home"); };
+function closeRec(){ cancelAnimationFrame(raf); stopStream(); }
+function applyRecUI(){
+  $("cam").style.objectFit = S.fit;
+  $("cam").classList.toggle("mirror", facing === "user" && S.mirror);
+  $("grid").hidden = !S.grid; $("prompter").dataset.h = S.ph;
+}
+
+// record settings sheet
+$("setBtn").onclick = () => { if (!recording) $("recSheet").hidden = false; };
+$("recSheetClose").onclick = () => $("recSheet").hidden = true;
+$("recSheet").addEventListener("click", e => { if (e.target.id === "recSheet") $("recSheet").hidden = true; });
+const paintQual = segInit("segQual", () => S.quality, v => { S.quality = v; saveS(); openCamera(); });
+segInit("segFit", () => S.fit, v => { S.fit = v; saveS(); applyRecUI(); });
+segInit("segPH", () => S.ph, v => { S.ph = v; saveS(); applyRecUI(); });
+segInit("segCD", () => S.cd, v => { S.cd = +v; saveS(); });
+$("optMirror").checked = S.mirror; $("optMirror").onchange = () => { S.mirror = $("optMirror").checked; saveS(); applyRecUI(); };
+$("optGrid").checked = S.grid; $("optGrid").onchange = () => { S.grid = $("optGrid").checked; saveS(); applyRecUI(); };
+
+// ---- prompter
+function buildPrompter(){
+  chunks = chunkScript($("script").value);
+  const box = $("ptxt"); box.textContent = ""; box.style.fontSize = S.psize + "px";
+  if (!chunks.length) { const d = document.createElement("div"); d.className = "pl cur"; d.style.fontSize = "18px"; d.textContent = "אין תסריט. אפשר לצלם בלי טקסט, והכתוביות יגיעו מזיהוי הדיבור."; box.appendChild(d); }
+  lineEls = chunks.map(c => { const d = document.createElement("div"); d.className = "pl"; d.textContent = c; box.appendChild(d); return d; });
+  pPos = 0; pPaused = false; lastCur = -2; times = new Array(chunks.length).fill(null);
+  paintPause(); paintSpeed();
+  cancelAnimationFrame(raf); pLast = performance.now(); raf = requestAnimationFrame(tick);
+}
+const markerY = () => $("prompter").clientHeight * 0.32;
+// pixels per second = (text height / words) × words per second
+const pxPerSec = () => ($("ptxt").scrollHeight / Math.max(1, words($("script").value).length)) * (S.speed / 60);
+let pDrag = null;
+function tick(now){
+  const dt = Math.min(0.1, (now - pLast) / 1000); pLast = now;
+  const H = $("ptxt").scrollHeight;
+  if (recording && !pPaused && !pDrag) pPos = Math.min(pPos + pxPerSec() * dt, H);
+  $("ptxt").style.transform = `translateY(${markerY() - pPos}px)`;
+  $("pmark").style.top = markerY() + "px";
+  let cur = -1;
+  for (let i = 0; i < lineEls.length; i++) {
+    if (lineEls[i].offsetTop <= pPos + 1) {
+      cur = i;
+      if (recording && times[i] == null) times[i] = (performance.now() - t0) / 1000;
+    } else break;
+  }
+  if (cur !== lastCur) { lineEls.forEach((el, i) => el.className = "pl" + (i < cur ? " past" : i === cur ? " cur" : "")); lastCur = cur; }
   raf = requestAnimationFrame(tick);
 }
-$("slower").onclick = () => { wpm = Math.max(60, wpm - 10); $("speed").value = wpm; updStats(); updSpeedLive(); };
-$("faster").onclick = () => { wpm = Math.min(260, wpm + 10); $("speed").value = wpm; updStats(); updSpeedLive(); };
-$("pauseP").onclick = () => { pPaused = !pPaused; $("pauseP").textContent = pPaused ? "▶ המשך טקסט" : "⏸ עצור טקסט"; };
-$("resetP").onclick = () => { pPos = 0; for (const el of chunkEls) el.classList.remove("done"); };
-$("prompter").style.pointerEvents = "auto";
-$("prompter").onclick = () => $("pauseP").click();
+// drag to scroll, tap to pause
+$("prompter").addEventListener("pointerdown", e => { pDrag = { y: e.clientY, p: pPos, moved: false }; $("prompter").setPointerCapture(e.pointerId); });
+$("prompter").addEventListener("pointermove", e => {
+  if (!pDrag) return; const dy = e.clientY - pDrag.y;
+  if (Math.abs(dy) > 6) pDrag.moved = true;
+  if (pDrag.moved) pPos = clamp(pDrag.p - dy, 0, $("ptxt").scrollHeight);
+});
+$("prompter").addEventListener("pointerup", () => { if (pDrag && !pDrag.moved) { pPaused = !pPaused; paintPause(); } pDrag = null; });
+$("prompter").addEventListener("pointercancel", () => pDrag = null);
+function paintPause(){ $("pauseP").textContent = pPaused ? "▶ טקסט" : "⏸ טקסט"; $("ppaused").hidden = !(pPaused && recording); }
+function paintSpeed(){ $("spv").textContent = S.speed; }
+$("pauseP").onclick = () => { pPaused = !pPaused; paintPause(); };
+$("resetP").onclick = () => { pPos = 0; };
+$("slower").onclick = () => { S.speed = Math.max(60, S.speed - 10); saveS(); $("speed").value = S.speed; paintSpeed(); updHome(); };
+$("faster").onclick = () => { S.speed = Math.min(260, S.speed + 10); saveS(); $("speed").value = S.speed; paintSpeed(); updHome(); };
+function resizeP(d){ const oldH = $("ptxt").scrollHeight || 1; S.psize = clamp(S.psize + d, 20, 64); saveS(); $("ptxt").style.fontSize = S.psize + "px"; pPos *= $("ptxt").scrollHeight / oldH; }
+$("aPlus").onclick = () => resizeP(3); $("aMinus").onclick = () => resizeP(-3);
 
+// ---- recording
 function pickMime(){
-  const c = ["video/mp4;codecs=avc1.42E01E,mp4a.40.2","video/mp4","video/webm;codecs=vp9,opus","video/webm;codecs=vp8,opus","video/webm"];
-  return c.find(m => window.MediaRecorder && MediaRecorder.isTypeSupported(m)) || "";
+  const c = ["video/mp4;codecs=avc1,mp4a.40.2", "video/mp4;codecs=avc1.42E01E,mp4a.40.2", "video/mp4;codecs=avc1,opus", "video/mp4",
+             "video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm"];
+  return c.find(m => window.MediaRecorder && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(m)) || "";
 }
-$("recBtn").onclick = () => recording ? stopRec() : countdown();
+$("recBtn").onclick = () => recording ? stopRec(false) : countdown();
 async function countdown(){
-  if (!camStream) { await openCamera(); if (!camStream) return; }
-  $("recBtn").disabled = true; $("count").hidden = false;
-  for (const n of [3, 2, 1]) { $("count").textContent = n; await new Promise(r => setTimeout(r, 800)); }
-  $("count").hidden = true; $("recBtn").disabled = false;
+  if (!stream) { await openCamera(); if (!stream) return; }
+  if (S.cd) {
+    $("recBtn").disabled = true; $("count").hidden = false;
+    for (let n = S.cd; n > 0; n--) { $("count").textContent = n; await new Promise(r => setTimeout(r, 850)); }
+    $("count").hidden = true; $("recBtn").disabled = false;
+  }
   startRec();
 }
 function startRec(){
-  recMime = pickMime(); recChunks = []; speechSegs = [];
-  try { recorder = new MediaRecorder(camStream, recMime ? { mimeType: recMime, videoBitsPerSecond: 6e6 } : undefined); }
-  catch(e){ $("recErr").textContent = "הדפדפן הזה לא תומך בהקלטת וידאו. נסו Chrome או Safari מעודכן."; return; }
-  recorder.ondataavailable = e => { if (e.data && e.data.size) recChunks.push(e.data); };
+  const mime = pickMime(); parts = []; speechSegs = [];
+  const vbr = S.quality === "4k" ? 25e6 : S.quality === "1080" ? 12e6 : 6e6;
+  try { recorder = new MediaRecorder(stream, mime ? { mimeType: mime, videoBitsPerSecond: vbr, audioBitsPerSecond: 160000 } : undefined); }
+  catch(e) { try { recorder = new MediaRecorder(stream); } catch(e2) { toast("הדפדפן הזה לא תומך בהקלטת וידאו. נסו Chrome או Safari מעודכן."); return; } }
+  recorder.ondataavailable = e => { if (e.data && e.data.size) parts.push(e.data); };
   recorder.onstop = () => {
-    recBlob = new Blob(recChunks, { type: recorder.mimeType || recMime || "video/webm" });
-    closeCamera(); openEditor(false);
+    recBlob = new Blob(parts, { type: recorder.mimeType || mime || "video/webm" });
+    closeRec(); openEditor(true);
   };
-  pPos = 0; scriptTimes = new Array(chunks.length).fill(null);
-  for (const el of chunkEls) el.classList.remove("done");
+  pPos = 0; times = new Array(chunks.length).fill(null); lastCur = -2;
   recorder.start(1000); t0 = performance.now(); recording = true;
   $("recBtn").classList.add("on"); $("recBtn").setAttribute("aria-label", "עצור הקלטה");
-  $("timer").hidden = false; $("flipBtn").disabled = true;
-  timerInt = setInterval(() => { const s = Math.floor((performance.now() - t0) / 1000); $("timerTxt").textContent = String(Math.floor(s/60)).padStart(2,"0") + ":" + String(s%60).padStart(2,"0"); }, 250);
+  $("timer").hidden = false; $("rtop").style.visibility = "hidden"; paintPause();
+  timerInt = setInterval(() => { $("timerTxt").textContent = fmt((performance.now() - t0) / 1000).padStart(5, "0"); }, 250);
   startSpeech();
 }
 function stopRec(discard){
+  recDur = (performance.now() - t0) / 1000;
   recording = false; clearInterval(timerInt); stopSpeech();
-  $("recBtn").classList.remove("on"); $("timer").hidden = true; $("flipBtn").disabled = false;
+  $("recBtn").classList.remove("on"); $("recBtn").setAttribute("aria-label", "התחל הקלטה");
+  $("timer").hidden = true; $("rtop").style.visibility = ""; paintPause();
   if (recorder && recorder.state !== "inactive") { if (discard) recorder.onstop = null; recorder.stop(); }
 }
 
-// ---- speech recognition while recording (Chrome / Android / iOS Safari). Optional: captions still come from the script if it fails.
-let rec = null, speechOn = false, segStart = {};
+// ---- speech recognition while recording (optional; when it fails the captions come from the script)
+let sr = null, srOn = false, segStart = {};
 function startSpeech(){
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) return;
   try {
-    rec = new SR(); rec.lang = "he-IL"; rec.continuous = true; rec.interimResults = true; speechOn = true;
-    rec.onresult = e => {
+    sr = new SR(); sr.lang = "he-IL"; sr.continuous = true; sr.interimResults = true; srOn = true; sr._b = Date.now(); segStart = {};
+    sr.onresult = e => {
       const t = (performance.now() - t0) / 1000;
       for (let i = e.resultIndex; i < e.results.length; i++) {
-        const key = rec._base + "_" + i;
-        if (segStart[key] === undefined) segStart[key] = Math.max(0, t - 0.6);
-        if (e.results[i].isFinal) {
-          const txt = e.results[i][0].transcript.trim();
-          if (txt) splitSpeech(txt, segStart[key], t);
-        }
+        const key = sr._b + "_" + i;
+        if (segStart[key] === undefined) segStart[key] = Math.max(0, t - 0.7);
+        if (e.results[i].isFinal) { const txt = e.results[i][0].transcript.trim(); if (txt) splitSpeech(txt, segStart[key], t); }
       }
     };
-    rec._base = Date.now();
-    rec.onend = () => { if (speechOn && recording) { try { rec._base = Date.now(); rec.start(); } catch(e){} } };
-    rec.onerror = () => {};
-    rec.start();
-  } catch(e){ rec = null; }
+    sr.onend = () => { if (srOn && recording) { try { sr._b = Date.now(); sr.start(); } catch(e){} } };
+    sr.onerror = () => {};
+    sr.start();
+  } catch(e){ sr = null; }
 }
-function stopSpeech(){ speechOn = false; if (rec) { try { rec.stop(); } catch(e){} } }
-// break one recognized sentence into short captions spread over its time span
+function stopSpeech(){ srOn = false; if (sr) { try { sr.stop(); } catch(e){} } }
 function splitSpeech(txt, a, b){
-  const ws = words(txt), parts = [];
-  for (let i = 0; i < ws.length; i += 5) parts.push(ws.slice(i, i + 5).join(" "));
+  const ws = words(txt), ps = [];
+  for (let i = 0; i < ws.length; i += 5) ps.push(ws.slice(i, i + 5).join(" "));
   const span = Math.max(0.8, b - a);
-  parts.forEach((p, k) => speechSegs.push({ start: a + span * k / parts.length, end: a + span * (k + 1) / parts.length, he: p, en: "" }));
+  ps.forEach((p, k) => speechSegs.push({ start: a + span * k / ps.length, end: a + span * (k + 1) / ps.length, he: p, en: "" }));
 }
 
-// ================= 3. EDIT =================
+// ================= EDIT =================
 const FONTS = [
-  { f:"Rubik", w:900, label:"רוביק" }, { f:"Heebo", w:900, label:"היבו" }, { f:"Secular One", w:400, label:"סקולר" },
-  { f:"Suez One", w:400, label:"סואץ" }, { f:"Karantina", w:700, label:"קרנטינה" }, { f:"Amatic SC", w:700, label:"אמטיק" },
-  { f:"Varela Round", w:400, label:"ורלה" }, { f:"Frank Ruhl Libre", w:700, label:"פרנק" }
+  { f: "Rubik", w: 900, n: "רוביק" }, { f: "Heebo", w: 900, n: "היבו" }, { f: "Secular One", w: 400, n: "סקולר" }, { f: "Suez One", w: 400, n: "סואץ" },
+  { f: "Karantina", w: 700, n: "קרנטינה" }, { f: "Amatic SC", w: 700, n: "אמטיק" }, { f: "Varela Round", w: 400, n: "ורלה" }, { f: "Frank Ruhl Libre", w: 700, n: "פרנק" }
 ];
-const COLORS = ["#ffffff","#ffe14d","#22d3ee","#ff3b6b","#34d399","#a78bfa","#111111"];
-let style = Object.assign({ font: 0, color: "#ffffff", box: "box", size: 64, pos: "low", lang: "he" }, store("st_style") || {});
-let caps = [], capSrc = "script", duration = 0, videoUrl = "";
-
-function buildStyleUI(){
-  $("fonts").innerHTML = ""; FONTS.forEach((F, i) => { const b = document.createElement("button"); b.textContent = "אבג"; b.title = F.label;
-    b.style.fontFamily = `'${F.f}'`; b.style.fontWeight = F.w; b.classList.toggle("on", style.font === i);
-    b.onclick = () => { style.font = i; saveStyle(); buildStyleUI(); }; $("fonts").appendChild(b); });
-  $("colors").innerHTML = ""; COLORS.forEach(c => { const b = document.createElement("button"); b.style.background = c; b.setAttribute("aria-label", "צבע " + c);
-    b.classList.toggle("on", style.color === c); b.onclick = () => { style.color = c; saveStyle(); buildStyleUI(); }; $("colors").appendChild(b); });
-  for (const [seg, key, attr] of [["boxSeg","box","b"],["posSeg","pos","p"],["langSeg","lang","l"]])
-    for (const b of $(seg).querySelectorAll("button")) b.classList.toggle("on", b.dataset[attr] === style[key]);
-  $("csize").value = style.size;
-  renderPreview();
-}
-function saveStyle(){ store("st_style", style); }
-for (const [seg, key, attr] of [["boxSeg","box","b"],["posSeg","pos","p"],["langSeg","lang","l"]])
-  $(seg).addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; style[key] = b.dataset[attr]; saveStyle(); buildStyleUI(); });
-$("csize").addEventListener("input", () => { style.size = +$("csize").value; saveStyle(); renderPreview(); });
+const COLORS = ["#ffffff", "#ffe14d", "#25e0f0", "#ff2d6f", "#2fd28a", "#ff8a3d", "#b18cff", "#111111"];
+const PRESETS = [
+  { n: "טיקטוק", s: { box: "outline", color: "#ffffff", karaoke: true, hl: "#ffe14d", anim: true, font: 0 } },
+  { n: "בועה", s: { box: "pill", color: "#ffffff", karaoke: true, hl: "#ff2d6f", anim: true, font: 1 } },
+  { n: "קלאסי", s: { box: "box", color: "#ffffff", karaoke: false, anim: false, font: 1 } },
+  { n: "ניאון", s: { box: "neon", color: "#25e0f0", karaoke: false, anim: true, font: 2 } },
+  { n: "צהוב", s: { box: "outline", color: "#ffe14d", karaoke: false, anim: true, font: 3 } },
+  { n: "נקי", s: { box: "shadow", color: "#ffffff", karaoke: false, anim: false, font: 6 } }
+];
+let ST = Object.assign({ font: 0, color: "#ffffff", hl: "#ffe14d", box: "outline", karaoke: true, anim: true, size: 88, lang: "he", x: 0.5, y: 0.72 }, LS.get("st2_style", {}));
+const saveST = () => LS.set("st2_style", ST);
+let caps = [], capSrc = "script", duration = 0, videoUrl = "", edited = false, sel = -1, editLoopOn = false;
 
 function capsFromScript(){
-  const n = chunks.length, ts = Array.from({ length: n }, (_, i) => scriptTimes[i] == null ? null : scriptTimes[i]);
-  // fill gaps (chunks never reached the reading line, or an uploaded video) by spreading evenly
+  const n = chunks.length, ts = Array.from({ length: n }, (_, i) => times[i] == null ? null : times[i]);
   const known = ts.map((t, i) => [i, t]).filter(x => x[1] != null);
-  if (!known.length) { for (let i = 0; i < n; i++) ts[i] = duration * i / Math.max(1, n); }
-  else {
-    for (let i = 0; i < n; i++) if (ts[i] == null) {
-      const prev = known.filter(k => k[0] < i).pop(), next = known.find(k => k[0] > i);
-      const a = prev ? prev[1] : 0, ia = prev ? prev[0] : -1, b = next ? next[1] : duration, ib = next ? next[0] : n;
-      ts[i] = a + (b - a) * (i - ia) / (ib - ia);
-    }
+  const D = duration || recDur || n * 1.8;
+  if (!known.length) for (let i = 0; i < n; i++) ts[i] = D * i / Math.max(1, n);
+  else for (let i = 0; i < n; i++) if (ts[i] == null) {
+    const prev = known.filter(k => k[0] < i).pop(), next = known.find(k => k[0] > i);
+    const a = prev ? prev[1] : 0, ia = prev ? prev[0] : -1, b = next ? next[1] : D, ib = next ? next[0] : n;
+    ts[i] = a + (b - a) * (i - ia) / (ib - ia);
   }
-  if (n) ts[0] = 0;
-  return chunks.map((c, i) => ({ start: ts[i], end: i + 1 < n ? ts[i + 1] : Math.max(ts[i] + 1.5, duration), he: c, en: "" }));
+  if (n) ts[0] = Math.min(ts[0], 0.05);
+  return chunks.map((c, i) => ({ start: ts[i], end: i + 1 < n ? ts[i + 1] : Math.max(ts[i] + 1.5, D), he: c, en: "" }));
 }
-function setSource(src){
-  capSrc = src;
-  for (const b of $("srcSeg").querySelectorAll("button")) b.classList.toggle("on", b.dataset.src === src);
+const paintSrc = segInit("segSrc", () => capSrc, v => setSource(v, true));
+function setSource(src, ask){
+  if (ask && edited && !confirm("להחליף את הכתוביות? השינויים שעשיתם יימחקו.")) { paintSrc(); return; }
+  capSrc = src; edited = false; sel = -1;
   if (src === "speech") {
     caps = speechSegs.map(s => ({ ...s }));
-    $("srcNote").textContent = caps.length ? "אלה המילים שהדפדפן זיהה בדיבור. אפשר לתקן כל שורה." :
-      "לא זוהה דיבור בצילום הזה (הדפדפן לא תומך, או שהמיקרופון היה תפוס). השתמשו ב'לפי התסריט'.";
+    $("srcNote").textContent = caps.length ? "אלה המילים שזוהו בדיבור בזמן הצילום. אפשר לתקן כל שורה." :
+      "לא זוהה דיבור בצילום הזה (בחלק מהטלפונים הדפדפן לא מאפשר זיהוי דיבור יחד עם המצלמה). השתמשו בכתוביות לפי התסריט.";
   } else {
     caps = capsFromScript();
-    $("srcNote").textContent = "הכתוביות לקוחות מהתסריט, מתוזמנות לפי הטלפרומפטר. אם אמרתם משהו אחר, תקנו את השורה.";
+    $("srcNote").textContent = caps.length ? "הכתוביות לקוחות מהתסריט, ומתוזמנות לפי הרגע שבו כל שורה עברה מול העיניים שלכם בטלפרומפטר."
+      : "אין תסריט. עברו ל'לפי זיהוי הדיבור' או הוסיפו כתוביות עם ＋.";
   }
-  renderCaps(); renderPreview();
-}
-$("srcSeg").addEventListener("click", e => { const b = e.target.closest("button"); if (b) setSource(b.dataset.src); });
-
-function renderCaps(){
-  const box = $("caps"); box.textContent = "";
-  caps.sort((a, b) => a.start - b.start);
-  caps.forEach((c, i) => {
-    const row = document.createElement("div"); row.className = "capRow"; row.dataset.i = i;
-    const t = document.createElement("div"); t.className = "t"; t.textContent = fmtT(c.start); t.title = "קפוץ לנקודה";
-    t.onclick = () => { $("player").currentTime = c.start + 0.01; renderPreview(); };
-    const mid = document.createElement("div");
-    const he = document.createElement("input"); he.type = "text"; he.value = c.he; he.setAttribute("aria-label", "כתובית " + (i + 1));
-    he.oninput = () => { c.he = he.value; renderPreview(); };
-    const en = document.createElement("input"); en.type = "text"; en.className = "en"; en.value = c.en; en.placeholder = "English";
-    en.setAttribute("aria-label", "תרגום לכתובית " + (i + 1)); en.oninput = () => { c.en = en.value; renderPreview(); };
-    mid.append(he, en);
-    const x = document.createElement("button"); x.className = "x"; x.textContent = "✕"; x.setAttribute("aria-label", "מחק כתובית");
-    x.onclick = () => { const prev = caps[i - 1]; if (prev) prev.end = c.end; caps.splice(i, 1); renderCaps(); renderPreview(); };
-    row.append(t, mid, x); box.appendChild(row);
-  });
-}
-$("addCap").onclick = () => {
-  const t = $("player").currentTime, i = caps.findIndex(c => c.start > t);
-  const prev = caps[(i === -1 ? caps.length : i) - 1], next = i === -1 ? null : caps[i];
-  if (prev && prev.end > t) prev.end = t;
-  caps.push({ start: t, end: next ? next.start : Math.min(duration, t + 2), he: "טקסט חדש", en: "" });
-  renderCaps(); renderPreview();
-};
-function shiftAll(d){ for (const c of caps) { c.start = Math.max(0, c.start + d); c.end = Math.max(c.start + 0.2, c.end + d); } renderCaps(); renderPreview(); }
-$("shiftEarlier").onclick = () => shiftAll(-0.2);
-$("shiftLater").onclick = () => shiftAll(0.2);
-
-const capAt = t => caps.find(c => t >= c.start && t < c.end);
-function linesFor(c){ if (!c) return []; const l = []; if (style.lang !== "en" && c.he) l.push({ t: c.he, he: true }); if (style.lang !== "he" && c.en) l.push({ t: c.en, he: false }); return l; }
-function posY(){ return style.pos === "top" ? 0.16 : style.pos === "mid" ? 0.5 : 0.76; }
-
-function renderPreview(){
-  const p = $("capPreview"), stageH = $("stage").clientHeight || 640, k = stageH / 1920;
-  const c = capAt($("player").currentTime || 0), F = FONTS[style.font];
-  p.textContent = "";
-  for (const ln of linesFor(c)) {
-    const d = document.createElement("div");
-    const s = document.createElement("span"); s.className = "l"; s.textContent = ln.t; s.dir = ln.he ? "rtl" : "ltr";
-    const fs = (ln.he ? style.size : style.size * 0.78) * k;
-    Object.assign(s.style, { fontFamily: `'${F.f}'`, fontWeight: F.w, fontSize: fs + "px", color: style.color });
-    if (style.box === "box") s.style.background = style.color === "#111111" ? "rgba(255,255,255,.88)" : "rgba(0,0,0,.62)";
-    if (style.box === "outline") s.style.webkitTextStroke = Math.max(1, fs * 0.08) + "px " + (style.color === "#111111" ? "#fff" : "#000"), s.style.paintOrder = "stroke fill";
-    if (style.box === "shadow") s.style.textShadow = `0 ${fs*.06}px ${fs*.18}px rgba(0,0,0,.85)`;
-    d.appendChild(s); p.appendChild(d);
-  }
-  p.style.top = (posY() * 100) + "%"; p.style.transform = "translateY(-50%)";
-  const cur = caps.indexOf(c);
-  for (const r of $("caps").children) r.classList.toggle("cur", +r.dataset.i === cur);
+  paintSrc(); renderCaps();
 }
 
-function openEditor(uploaded){
-  show("editScreen");
+function openEditor(fromRec){
+  show("edit");
+  const v = $("player");
   if (videoUrl) URL.revokeObjectURL(videoUrl);
   videoUrl = URL.createObjectURL(recBlob);
-  const v = $("player"); v.src = videoUrl; v.currentTime = 0;
-  $("dlLink").hidden = true; $("exNote").textContent = "";
-  v.onloadedmetadata = async () => {
-    duration = isFinite(v.duration) ? v.duration : 0;
-    if (!duration) { // webm from MediaRecorder sometimes reports Infinity until seeked
-      await new Promise(r => { v.currentTime = 1e7; v.ontimeupdate = () => { v.ontimeupdate = null; r(); }; });
-      duration = v.duration; v.currentTime = 0;
-    }
-    chunks = chunks.length ? chunks : chunkScript($("script").value);
-    setSource(speechSegs.length && uploaded ? "speech" : "script");
-    buildStyleUI();
-  };
-  v.ontimeupdate = renderPreview;
-  v.onplay = () => $("playBtn").textContent = "⏸ עצור";
-  v.onpause = () => $("playBtn").textContent = "▶ נגן";
+  v.src = videoUrl; v.load();
+  duration = fromRec ? recDur : 0;
+  v.style.objectFit = S.fit;
+  $("result").hidden = true; $("backToEdit").hidden = false;
+  if (!chunks.length) chunks = chunkScript($("script").value);
+  setSource(chunks.length || !speechSegs.length ? "script" : "speech");
+  setTab("caps"); paintStyleUI(); preloadFonts(); updDur(); startEditLoop();
+  $("hint").hidden = false; setTimeout(() => $("hint").hidden = true, 5000);
 }
-$("playBtn").onclick = () => { const v = $("player"); v.paused ? v.play() : v.pause(); };
-$("editBack").onclick = () => { $("player").pause(); openCamera(); };
+// MediaRecorder webm files often report duration = Infinity until you seek to the end
+$("player").addEventListener("loadedmetadata", () => {
+  const v = $("player");
+  if (isFinite(v.duration) && v.duration > 0) return setDuration(v.duration);
+  const onT = () => { v.removeEventListener("timeupdate", onT); if (isFinite(v.duration)) setDuration(v.duration); v.currentTime = 0; };
+  v.addEventListener("timeupdate", onT); v.currentTime = 1e7;
+});
+function setDuration(d){
+  const before = duration; duration = d; updDur();
+  if (Math.abs(before - d) > 0.3 && capSrc === "script" && !edited) { caps = capsFromScript(); renderCaps(); }
+}
+function updDur(){ $("tDur").textContent = fmt(duration); renderTimeline(); }
+function preloadFonts(){ if (document.fonts) for (const F of FONTS) document.fonts.load(`${F.w} 60px "${F.f}"`, "אבג abc").catch(() => {}); }
 
-// ---- translation (MyMemory free API; one request per caption)
-$("translateAll").onclick = async () => {
-  const todo = caps.filter(c => c.he && !c.en);
+// ---- playback (audio goes through an AudioContext so the export can record it)
+let ac = null, srcNode = null, outGain = null, adest = null;
+function ensureAudio(){
+  if (ac) { ac.resume().catch(() => {}); return; }
+  try {
+    ac = new (window.AudioContext || window.webkitAudioContext)();
+    srcNode = ac.createMediaElementSource($("player"));
+    outGain = ac.createGain(); adest = ac.createMediaStreamDestination();
+    srcNode.connect(outGain); outGain.connect(ac.destination); srcNode.connect(adest);
+    ac.resume().catch(() => {});
+  } catch(e){ ac = null; }
+}
+function togglePlay(){ const v = $("player"); ensureAudio(); if (v.paused) { if (v.ended || v.currentTime >= duration - 0.05) v.currentTime = 0; v.play().catch(() => {}); } else v.pause(); }
+$("playBtn").onclick = togglePlay;
+$("player").addEventListener("play", () => { $("playBtn").textContent = "⏸"; $("playOv").hidden = true; });
+$("player").addEventListener("pause", () => { $("playBtn").textContent = "▶"; $("playOv").hidden = false; });
+$("scrub").addEventListener("input", () => { const v = $("player"); v.currentTime = $("scrub").value / 1000 * (duration || 0); });
+$("editBack").onclick = () => { $("player").pause(); show("home"); };
+
+function startEditLoop(){ if (editLoopOn) return; editLoopOn = true; requestAnimationFrame(editLoop); }
+function editLoop(){
+  if ($("edit").hidden) { editLoopOn = false; return; }
+  const v = $("player"), t = v.currentTime || 0;
+  drawPreview(t);
+  if (document.activeElement !== $("scrub") && duration) $("scrub").value = t / duration * 1000;
+  $("tCur").textContent = fmt(t);
+  $("ph").style.left = (duration ? t / duration * 100 : 0) + "%";
+  const ci = caps.indexOf(capAt(t));
+  if (ci !== lastHi) { lastHi = ci; for (const r of $("capList").children) r.classList.toggle("cur", +r.dataset.i === ci); }
+  requestAnimationFrame(editLoop);
+}
+let lastHi = -2;
+
+// ---- caption drawing (same code for the preview and the exported video), 1080×1920 coordinates
+const capAt = t => caps.find(c => t >= c.start && t < c.end);
+let capBox = null;
+function rr(ctx, x, y, w, h, r){ ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(x, y, w, h, r); else ctx.rect(x, y, w, h); }
+const easeOutBack = a => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(a - 1, 3) + c1 * Math.pow(a - 1, 2); };
+function drawWord(ctx, text, x, y, fs, color){
+  const dark = color === "#111111";
+  if (ST.box === "outline") { ctx.lineJoin = "round"; ctx.miterLimit = 2; ctx.lineWidth = fs * 0.17; ctx.strokeStyle = dark ? "#fff" : "#000"; ctx.strokeText(text, x, y); }
+  if (ST.box === "shadow") { ctx.shadowColor = "rgba(0,0,0,.85)"; ctx.shadowBlur = fs * 0.22; ctx.shadowOffsetY = fs * 0.06; }
+  if (ST.box === "neon") { ctx.shadowColor = color; ctx.shadowBlur = fs * 0.5; ctx.fillStyle = color; ctx.fillText(text, x, y); ctx.shadowBlur = fs * 0.18; }
+  ctx.fillStyle = ST.box === "neon" ? "#ffffff" : color;
+  if (ST.box === "neon") { ctx.globalAlpha *= 0.9; ctx.fillStyle = color; }
+  ctx.fillText(text, x, y);
+  ctx.shadowColor = "transparent"; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+}
+function drawCaption(ctx, t, W, H){
+  capBox = null;
+  const c = capAt(t); if (!c) return;
+  const F = FONTS[ST.font] || FONTS[0], groups = [];
+  const lines = [];
+  if (ST.lang !== "en" && c.he.trim()) lines.push({ text: c.he, rtl: true, main: true });
+  if (ST.lang !== "he" && (c.en || "").trim()) lines.push({ text: c.en, rtl: false, main: ST.lang === "en" });
+  if (!lines.length) return;
+  for (const ln of lines) {
+    const fs = ln.main ? ST.size : ST.size * 0.7;
+    ctx.font = `${F.w} ${fs}px "${F.f}", Rubik, Arial, sans-serif`; ctx.direction = ln.rtl ? "rtl" : "ltr";
+    const sp = ctx.measureText(" ").width * 1.1, rows = []; let cur = [], cw = 0;
+    for (const w of words(ln.text)) {
+      const ww = ctx.measureText(w).width, nw = cur.length ? cw + sp + ww : ww;
+      if (nw > W * 0.86 && cur.length) { rows.push({ ws: cur, w: cw }); cur = [{ t: w, w: ww }]; cw = ww; } else { cur.push({ t: w, w: ww }); cw = nw; }
+    }
+    if (cur.length) rows.push({ ws: cur, w: cw });
+    groups.push({ ln, fs, rows, sp, k: -1 });
+  }
+  if (ST.karaoke) { // which word is being said now (by letter count)
+    const g = groups.find(g => g.ln.main) || groups[0], all = g.rows.flatMap(r => r.ws);
+    const lens = all.map(w => w.t.length + 2), tot = lens.reduce((a, b) => a + b, 0);
+    const p = (t - c.start) / Math.max(0.3, c.end - c.start) * tot; let acc = 0; g.k = all.length - 1;
+    for (let i = 0; i < all.length; i++) { acc += lens[i]; if (p < acc) { g.k = i; break; } }
+  }
+  const LH = 1.3, gap = ST.size * 0.2;
+  const total = groups.reduce((s, g) => s + g.rows.length * g.fs * LH, 0) + (groups.length - 1) * gap;
+  const maxW = Math.max(...groups.flatMap(g => g.rows.map(r => r.w)));
+  let sc = 1, al = 1;
+  if (ST.anim) { const a = clamp((t - c.start) / 0.22, 0, 1); sc = 0.7 + 0.3 * easeOutBack(a); al = clamp(a * 2, 0, 1); }
+  const cx = ST.x * W, cy = clamp(ST.y * H, total / 2 + 40, H - total / 2 - 40);
+  ctx.save(); ctx.translate(cx, cy); ctx.scale(sc, sc); ctx.globalAlpha = al;
+  ctx.textBaseline = "middle"; ctx.textAlign = "left";
+  let y = -total / 2;
+  for (const g of groups) {
+    ctx.font = `${F.w} ${g.fs}px "${F.f}", Rubik, Arial, sans-serif`; ctx.direction = g.ln.rtl ? "rtl" : "ltr";
+    let wi = 0;
+    for (const r of g.rows) {
+      const L = g.fs * LH, my = y + L / 2;
+      if (ST.box === "box" || (ST.box === "pill" && g.k < 0)) {
+        ctx.fillStyle = ST.color === "#111111" ? "rgba(255,255,255,.9)" : "rgba(0,0,0,.62)";
+        rr(ctx, -r.w / 2 - g.fs * 0.32, my - L / 2 + 2, r.w + g.fs * 0.64, L - 4, g.fs * 0.24); ctx.fill();
+      }
+      let x = g.ln.rtl ? r.w / 2 : -r.w / 2;
+      for (const w of r.ws) {
+        const left = g.ln.rtl ? x - w.w : x, isK = g.k === wi;
+        if (ST.box === "pill" && isK) { ctx.fillStyle = ST.hl; rr(ctx, left - g.fs * 0.16, my - g.fs * 0.6, w.w + g.fs * 0.32, g.fs * 1.2, g.fs * 0.26); ctx.fill(); }
+        drawWord(ctx, w.t, left, my + g.fs * 0.04, g.fs, isK && ST.box !== "pill" ? ST.hl : ST.color);
+        x = g.ln.rtl ? left - g.sp : left + w.w + g.sp; wi++;
+      }
+      y += L;
+    }
+    y += gap;
+  }
+  ctx.restore();
+  capBox = { x: cx - (maxW / 2 + 50) * sc, y: cy - (total / 2 + 40) * sc, w: (maxW + 100) * sc, h: (total + 80) * sc, c };
+}
+let guide = false;
+function drawPreview(t){
+  const cv = $("ov"), r = cv.getBoundingClientRect(), dpr = Math.min(2, window.devicePixelRatio || 1);
+  const w = Math.round(r.width * dpr), h = Math.round(r.height * dpr);
+  if (!w) return;
+  if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+  const ctx = cv.getContext("2d");
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, w, h);
+  ctx.setTransform(w / 1080, 0, 0, h / 1920, 0, 0);
+  drawCaption(ctx, t, 1080, 1920);
+  if (cDrag && cDrag.moved && capBox) {
+    ctx.setLineDash([14, 10]); ctx.lineWidth = 4; ctx.strokeStyle = "rgba(255,255,255,.8)"; ctx.strokeRect(capBox.x, capBox.y, capBox.w, capBox.h); ctx.setLineDash([]);
+    if (guide) { ctx.strokeStyle = "#25e0f0"; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(540, 0); ctx.lineTo(540, 1920); ctx.stroke(); }
+  }
+}
+
+// ---- drag the caption on the video / tap it to edit / tap elsewhere to play
+let cDrag = null;
+function toLogical(e){ const r = $("ov").getBoundingClientRect(); return { x: (e.clientX - r.left) / r.width * 1080, y: (e.clientY - r.top) / r.height * 1920 }; }
+$("ov").addEventListener("pointerdown", e => {
+  const p = toLogical(e);
+  const hit = capBox && p.x >= capBox.x && p.x <= capBox.x + capBox.w && p.y >= capBox.y && p.y <= capBox.y + capBox.h;
+  cDrag = { p, x0: ST.x, y0: ST.y, moved: false, hit, c: hit ? capBox.c : null };
+  $("ov").setPointerCapture(e.pointerId);
+});
+$("ov").addEventListener("pointermove", e => {
+  if (!cDrag || !cDrag.hit) return;
+  const p = toLogical(e), dx = p.x - cDrag.p.x, dy = p.y - cDrag.p.y;
+  if (Math.hypot(dx, dy) > 14) cDrag.moved = true;
+  if (!cDrag.moved) return;
+  let nx = clamp(cDrag.x0 + dx / 1080, 0.15, 0.85);
+  guide = Math.abs(nx - 0.5) < 0.03; if (guide) nx = 0.5;
+  ST.x = nx; ST.y = clamp(cDrag.y0 + dy / 1920, 0.06, 0.94);
+});
+$("ov").addEventListener("pointerup", () => {
+  if (!cDrag) return;
+  if (cDrag.hit && cDrag.moved) { saveST(); paintPos(); }
+  else if (cDrag.hit) openCapSheet(caps.indexOf(cDrag.c));
+  else togglePlay();
+  cDrag = null; guide = false;
+});
+$("ov").addEventListener("pointercancel", () => { cDrag = null; });
+
+// ---- timeline
+function renderTimeline(){
+  const box = $("tlCaps"); box.textContent = "";
+  if (!duration) return;
+  caps.forEach((c, i) => {
+    const b = document.createElement("div"); b.className = "b" + (i === sel ? " sel" : "");
+    b.style.left = (c.start / duration * 100) + "%"; b.style.width = Math.max(0.5, (c.end - c.start) / duration * 100) + "%";
+    b.textContent = c.he; box.appendChild(b);
+  });
+}
+let tlDrag = false;
+function tlSeek(e){ const r = $("tl").getBoundingClientRect(); $("player").currentTime = clamp((e.clientX - r.left) / r.width, 0, 1) * duration; }
+$("tl").addEventListener("pointerdown", e => { tlDrag = true; $("tl").setPointerCapture(e.pointerId); $("player").pause(); tlSeek(e); });
+$("tl").addEventListener("pointermove", e => { if (tlDrag) tlSeek(e); });
+$("tl").addEventListener("pointerup", () => tlDrag = false);
+
+// ---- caption list
+function renderCaps(){
+  caps.sort((a, b) => a.start - b.start);
+  const box = $("capList"); box.textContent = ""; lastHi = -2;
+  if (!caps.length) { const p = document.createElement("div"); p.className = "small mut"; p.style.textAlign = "center"; p.style.padding = "16px"; p.textContent = "אין כתוביות עדיין."; box.appendChild(p); }
+  caps.forEach((c, i) => {
+    const row = document.createElement("div"); row.className = "cr"; row.dataset.i = i; row.setAttribute("role", "button"); row.tabIndex = 0;
+    const t = document.createElement("span"); t.className = "t"; t.textContent = fmtP(c.start);
+    const mid = document.createElement("div");
+    const he = document.createElement("div"); he.className = "he"; he.textContent = c.he || "—";
+    mid.appendChild(he);
+    if (c.en) { const en = document.createElement("div"); en.className = "en"; en.textContent = c.en; mid.appendChild(en); }
+    const ed = document.createElement("button"); ed.className = "ed"; ed.textContent = "✏️ ערוך"; ed.setAttribute("aria-label", "ערוך כתובית " + (i + 1));
+    ed.onclick = e => { e.stopPropagation(); openCapSheet(i); };
+    row.onclick = () => { $("player").pause(); $("player").currentTime = c.start + 0.02; };
+    row.ondblclick = () => openCapSheet(i);
+    row.append(t, mid, ed); box.appendChild(row);
+  });
+  renderTimeline();
+}
+$("addCap").onclick = () => {
+  const t = $("player").currentTime || 0;
+  const cur = capAt(t);
+  if (cur) { // split the current one's time
+    const nc = { start: t, end: cur.end, he: "טקסט חדש", en: "" }; cur.end = t; caps.push(nc);
+  } else {
+    const next = caps.find(c => c.start > t);
+    caps.push({ start: t, end: Math.min(next ? next.start : duration, t + 2) || t + 2, he: "טקסט חדש", en: "" });
+  }
+  edited = true; renderCaps(); openCapSheet(caps.findIndex(c => c.start === t && c.he === "טקסט חדש"));
+};
+function shiftAll(d){ for (const c of caps) { c.start = Math.max(0, c.start + d); c.end = Math.max(c.start + 0.2, c.end + d); } edited = true; renderCaps(); toast(d < 0 ? "כל הכתוביות הוקדמו ב-0.2 שניות" : "כל הכתוביות אוחרו ב-0.2 שניות"); }
+$("shiftE").onclick = () => shiftAll(-0.2); $("shiftL").onclick = () => shiftAll(0.2);
+
+// ---- caption editor sheet
+function openCapSheet(i){
+  if (i < 0 || i >= caps.length) return;
+  sel = i; const c = caps[i], v = $("player");
+  v.pause(); v.currentTime = c.start + 0.3 < c.end ? c.start + 0.3 : c.start + 0.01;
+  $("csTitle").textContent = "כתובית " + (i + 1) + " מתוך " + caps.length;
+  $("csHe").value = c.he; $("csEn").value = c.en || "";
+  paintCsTimes(); $("capSheet").hidden = false; renderTimeline();
+  $("csPrev").disabled = i === 0; $("csNext").disabled = i === caps.length - 1;
+}
+function paintCsTimes(){ const c = caps[sel]; if (!c) return; $("csS").textContent = fmtP(c.start); $("csE").textContent = fmtP(c.end); }
+function closeCapSheet(){ $("capSheet").hidden = true; sel = -1; renderCaps(); }
+$("csDone").onclick = closeCapSheet;
+$("csHe").addEventListener("input", () => { if (caps[sel]) { caps[sel].he = $("csHe").value; edited = true; } });
+$("csEn").addEventListener("input", () => { if (caps[sel]) { caps[sel].en = $("csEn").value; edited = true; } });
+document.querySelectorAll(".tedit button").forEach(b => b.onclick = () => {
+  const c = caps[sel]; if (!c) return; const a = b.dataset.a, t = $("player").currentTime;
+  if (a === "s-1") c.start = Math.max(0, c.start - 0.1);
+  if (a === "s+1") c.start = Math.min(c.end - 0.2, c.start + 0.1);
+  if (a === "sNow") c.start = Math.min(c.end - 0.2, t);
+  if (a === "e-1") c.end = Math.max(c.start + 0.2, c.end - 0.1);
+  if (a === "e+1") c.end = Math.min(duration || 1e9, c.end + 0.1);
+  if (a === "eNow") c.end = Math.max(c.start + 0.2, t);
+  edited = true; paintCsTimes(); renderTimeline();
+  $("player").currentTime = a[0] === "s" ? c.start + 0.01 : Math.max(c.start, c.end - 0.4);
+});
+$("csPrev").onclick = () => { renderCaps(); openCapSheet(sel - 1); };
+$("csNext").onclick = () => { renderCaps(); openCapSheet(sel + 1); };
+$("csDel").onclick = () => {
+  const i = sel; if (!caps[i]) return;
+  const prev = caps[i - 1]; if (prev && Math.abs(prev.end - caps[i].start) < 0.05) prev.end = caps[i].end;
+  caps.splice(i, 1); edited = true; closeCapSheet(); toast("הכתובית נמחקה");
+};
+$("csMerge").onclick = () => {
+  const c = caps[sel], n = caps[sel + 1]; if (!c || !n) return toast("אין כתובית אחריה");
+  c.he = (c.he + " " + n.he).trim(); c.en = ((c.en || "") + " " + (n.en || "")).trim(); c.end = n.end; caps.splice(sel + 1, 1);
+  edited = true; renderCaps(); openCapSheet(caps.indexOf(c));
+};
+$("csSplit").onclick = () => {
+  const c = caps[sel], t = $("player").currentTime;
+  if (!c) return;
+  if (!(t > c.start + 0.15 && t < c.end - 0.15)) return toast("הזיזו את הסרטון לנקודה שבתוך הכתובית, ואז לחצו פצל");
+  const ws = words(c.he), k = clamp(Math.round(ws.length * (t - c.start) / (c.end - c.start)), 1, Math.max(1, ws.length - 1));
+  const nc = { start: t, end: c.end, he: ws.slice(k).join(" ") || "טקסט חדש", en: "" };
+  c.he = ws.slice(0, k).join(" "); c.end = t; caps.push(nc);
+  edited = true; renderCaps(); openCapSheet(caps.indexOf(c)); toast("פוצל לשתי כתוביות");
+};
+$("csTr").onclick = async () => { const c = caps[sel]; if (!c) return; $("csTr").disabled = true; const t = await translate(c.he); $("csTr").disabled = false; if (t) { c.en = t; $("csEn").value = t; edited = true; } else toast("התרגום נכשל. אפשר לכתוב ידנית."); };
+
+// ---- tabs
+function setTab(t){
+  for (const b of $("tabs").querySelectorAll("button")) b.classList.toggle("on", b.dataset.tab === t);
+  for (const p of ["caps", "style", "lang", "save"]) $("p-" + p).hidden = p !== t;
+}
+$("tabs").addEventListener("click", e => { const b = e.target.closest("button"); if (b) setTab(b.dataset.tab); });
+$("exportTop").onclick = () => setTab("save");
+
+// ---- style panel
+function swatches(id, key){
+  const box = $(id); box.textContent = "";
+  for (const c of COLORS) { const b = document.createElement("button"); b.style.background = c; b.setAttribute("aria-label", "צבע " + c);
+    b.classList.toggle("on", ST[key] === c); b.onclick = () => { ST[key] = c; saveST(); paintStyleUI(); }; box.appendChild(b); }
+}
+let paintBox, paintPos, paintLang, paintFit2;
+function paintStyleUI(){
+  const pb = $("presets"); pb.textContent = "";
+  PRESETS.forEach(P => {
+    const b = document.createElement("button"); b.textContent = P.n;
+    const F = FONTS[P.s.font]; b.style.fontFamily = `"${F.f}"`; b.style.fontWeight = F.w; b.style.color = P.s.color;
+    if (P.s.box === "outline") b.style.textShadow = "2px 2px 0 #000,-2px -2px 0 #000,2px -2px 0 #000,-2px 2px 0 #000";
+    if (P.s.box === "neon") b.style.textShadow = `0 0 10px ${P.s.color}`;
+    if (P.s.box === "pill") b.innerHTML = `<span style="background:${P.s.hl};padding:2px 8px;border-radius:8px">${P.n}</span>`;
+    if (P.s.box === "box") b.innerHTML = `<span style="background:rgba(0,0,0,.65);padding:2px 8px;border-radius:6px">${P.n}</span>`;
+    const on = Object.keys(P.s).every(k => ST[k] === P.s[k] || (k === "hl" && !ST.karaoke));
+    b.classList.toggle("on", on);
+    b.onclick = () => { Object.assign(ST, P.s); saveST(); paintStyleUI(); };
+    pb.appendChild(b);
+  });
+  const fb = $("fonts"); fb.textContent = "";
+  FONTS.forEach((F, i) => { const b = document.createElement("button"); b.textContent = "שלום"; b.title = F.n; b.setAttribute("aria-label", "גופן " + F.n);
+    b.style.fontFamily = `"${F.f}"`; b.style.fontWeight = F.w; b.classList.toggle("on", ST.font === i);
+    b.onclick = () => { ST.font = i; saveST(); paintStyleUI(); }; fb.appendChild(b); });
+  swatches("colors", "color"); swatches("hlColors", "hl");
+  $("optKar").checked = ST.karaoke; $("optAnim").checked = ST.anim;
+  $("hlLbl").hidden = $("hlColors").hidden = !ST.karaoke;
+  $("csize").value = ST.size; $("sizeVal").textContent = ST.size;
+  paintBox && paintBox(); paintPos && paintPos(); paintLang && paintLang(); paintFit2 && paintFit2();
+}
+paintBox = segInit("segBox", () => ST.box, v => { ST.box = v; saveST(); paintStyleUI(); });
+paintPos = segInit("segPos", () => { const y = ST.y; return y < 0.35 ? ".2" : y < 0.62 ? ".5" : ".72"; }, v => { ST.y = +v; ST.x = 0.5; saveST(); });
+paintLang = segInit("segLang", () => ST.lang, v => { ST.lang = v; saveST(); if (v !== "he" && !caps.some(c => c.en)) toast("עוד אין תרגום. לחצו 'תרגם את כל הכתוביות'"); });
+paintFit2 = segInit("segFit2", () => S.fit, v => { S.fit = v; saveS(); $("player").style.objectFit = v; });
+$("optKar").onchange = () => { ST.karaoke = $("optKar").checked; saveST(); paintStyleUI(); };
+$("optAnim").onchange = () => { ST.anim = $("optAnim").checked; saveST(); };
+$("csize").oninput = () => { ST.size = +$("csize").value; $("sizeVal").textContent = ST.size; saveST(); };
+
+// ---- translation (MyMemory, free)
+async function translate(text){
+  try {
+    const r = await fetch("https://api.mymemory.translated.net/get?langpair=he|en&q=" + encodeURIComponent(text));
+    const j = await r.json(), t = j && j.responseData && j.responseData.translatedText;
+    return t && !/MYMEMORY WARNING|QUERY LENGTH|INVALID/i.test(t) ? t : null;
+  } catch(e){ return null; }
+}
+$("trAll").onclick = async () => {
+  const todo = caps.filter(c => c.he.trim() && !c.en);
   $("trErr").textContent = "";
   if (!todo.length) { $("trErr").textContent = caps.length ? "כל הכתוביות כבר מתורגמות." : "אין כתוביות לתרגם."; return; }
-  $("translateAll").disabled = true; $("trProg").hidden = false;
-  let done = 0, failed = 0;
-  for (const c of todo) {
-    try {
-      const r = await fetch("https://api.mymemory.translated.net/get?langpair=he|en&q=" + encodeURIComponent(c.he));
-      const j = await r.json();
-      const t = j && j.responseData && j.responseData.translatedText;
-      if (t && !/MYMEMORY WARNING|QUERY LENGTH/i.test(t)) c.en = t; else failed++;
-    } catch(e){ failed++; }
-    done++; $("trProg").firstElementChild.style.width = (done / todo.length * 100) + "%";
-  }
-  $("translateAll").disabled = false; $("trProg").hidden = true;
-  if (failed) $("trErr").textContent = failed + " שורות לא תורגמו (ייתכן שהגעתם למגבלה היומית של שירות התרגום). אפשר לכתוב אותן ידנית.";
-  if (style.lang === "he") { style.lang = "both"; saveStyle(); }
-  renderCaps(); buildStyleUI();
+  $("trAll").disabled = true; $("trProg").hidden = false; let done = 0, fail = 0;
+  for (const c of todo) { const t = await translate(c.he); if (t) c.en = t; else fail++; done++; $("trProg").firstElementChild.style.width = (done / todo.length * 100) + "%"; }
+  $("trAll").disabled = false; $("trProg").hidden = true; edited = true;
+  if (fail) $("trErr").textContent = fail + " שורות לא תורגמו (אולי הגעתם למגבלה היומית של שירות התרגום). אפשר לכתוב אותן ידנית.";
+  else toast("התרגום הסתיים ✓");
+  if (ST.lang === "he") { ST.lang = "both"; saveST(); paintLang(); }
+  renderCaps();
 };
 
-// ---- export: draw video + captions on a 1080×1920 canvas and record it
-function wrapLines(ctx, text, maxW){
-  const ws = text.split(/\s+/), lines = []; let cur = "";
-  for (const w of ws) { const t = cur ? cur + " " + w : w; if (ctx.measureText(t).width > maxW && cur) { lines.push(cur); cur = w; } else cur = t; }
-  if (cur) lines.push(cur); return lines;
+// ---- export: play the video once, draw each frame + captions onto a 1080×1920 canvas and record it
+let exporting = false, exRec = null, exCancelled = false;
+function drawVideo(ctx, v, W, H){
+  ctx.fillStyle = "#000"; ctx.fillRect(0, 0, W, H);
+  const vw = v.videoWidth, vh = v.videoHeight; if (!vw) return;
+  const cover = Math.max(W / vw, H / vh), fit = Math.min(W / vw, H / vh);
+  if (S.fit === "contain") {
+    ctx.globalAlpha = 0.3; ctx.drawImage(v, (W - vw * cover) / 2, (H - vh * cover) / 2, vw * cover, vh * cover); ctx.globalAlpha = 1;
+    ctx.drawImage(v, (W - vw * fit) / 2, (H - vh * fit) / 2, vw * fit, vh * fit);
+  } else ctx.drawImage(v, (W - vw * cover) / 2, (H - vh * cover) / 2, vw * cover, vh * cover);
 }
-function drawCaption(ctx, W, H, c){
-  const F = FONTS[style.font], groups = linesFor(c).map(ln => {
-    const fs = ln.he ? style.size : style.size * 0.78;
-    ctx.font = `${F.w} ${fs}px '${F.f}'`; ctx.direction = ln.he ? "rtl" : "ltr";
-    return { ln, fs, rows: wrapLines(ctx, ln.t, W * 0.84) };
-  });
-  const total = groups.reduce((s, g) => s + g.rows.length * g.fs * 1.3, 0) + (groups.length - 1) * 10;
-  let y = H * posY() - total / 2;
-  for (const g of groups) {
-    ctx.font = `${F.w} ${g.fs}px '${F.f}'`; ctx.direction = g.ln.he ? "rtl" : "ltr"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    for (const row of g.rows) {
-      const lh = g.fs * 1.3, cy = y + lh / 2, w = ctx.measureText(row).width;
-      if (style.box === "box") {
-        ctx.fillStyle = style.color === "#111111" ? "rgba(255,255,255,.88)" : "rgba(0,0,0,.62)";
-        const px = g.fs * 0.3, r = g.fs * 0.22, x0 = W / 2 - w / 2 - px, y0 = cy - lh / 2 + 2, bw = w + px * 2, bh = lh - 4;
-        ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x0, y0, bw, bh, r) : ctx.rect(x0, y0, bw, bh); ctx.fill();
-      }
-      if (style.box === "shadow") { ctx.shadowColor = "rgba(0,0,0,.85)"; ctx.shadowBlur = g.fs * 0.18; ctx.shadowOffsetY = g.fs * 0.06; }
-      if (style.box === "outline") { ctx.lineJoin = "round"; ctx.lineWidth = g.fs * 0.16; ctx.strokeStyle = style.color === "#111111" ? "#fff" : "#000"; ctx.strokeText(row, W / 2, cy); }
-      ctx.fillStyle = style.color; ctx.fillText(row, W / 2, cy);
-      ctx.shadowColor = "transparent"; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
-      y += lh;
-    }
-    y += 10;
-  }
-}
-$("exportBtn").onclick = async () => {
-  const W = 1080, H = 1920, F = FONTS[style.font];
-  $("exportBtn").disabled = true; $("exProg").hidden = false; $("dlLink").hidden = true;
-  $("exNote").textContent = "מכין… השאירו את המסך פתוח עד הסוף.";
-  try { await document.fonts.load(`${F.w} 64px '${F.f}'`, "אבג abc"); } catch(e){}
+async function doExport(){
+  if (exporting) return;
+  const v = $("player"), W = 1080, H = 1920;
+  ensureAudio();
+  v.pause(); v.currentTime = 0;
+  const playing = v.play();   // started directly from the tap so phones allow sound
+  exporting = true; exCancelled = false; $("exOv").hidden = false; $("exPct").textContent = "0%"; $("exBar").style.width = "0";
+  if (outGain) outGain.gain.value = 0;   // silent while saving
   const cv = document.createElement("canvas"); cv.width = W; cv.height = H; const ctx = cv.getContext("2d");
-  const v = document.createElement("video"); v.src = videoUrl; v.playsInline = true; v.crossOrigin = "anonymous";
-  await new Promise(r => { v.onloadeddata = r; v.load(); });
-  const ac = new (window.AudioContext || window.webkitAudioContext)(); const dest = ac.createMediaStreamDestination();
-  try { ac.createMediaElementSource(v).connect(dest); } catch(e){}
-  const out = cv.captureStream(30); for (const t of dest.stream.getAudioTracks()) out.addTrack(t);
-  const mime = pickMime(), mr = new MediaRecorder(out, mime ? { mimeType: mime, videoBitsPerSecond: 8e6 } : undefined), parts = [];
-  mr.ondataavailable = e => { if (e.data.size) parts.push(e.data); };
-  const finished = new Promise(r => mr.onstop = r);
-  let stopDraw = false;
-  const draw = () => {
-    if (stopDraw) return;
-    const vw = v.videoWidth || W, vh = v.videoHeight || H, s = Math.max(W / vw, H / vh);
-    ctx.fillStyle = "#000"; ctx.fillRect(0, 0, W, H);
-    ctx.drawImage(v, (W - vw * s) / 2, (H - vh * s) / 2, vw * s, vh * s);
-    drawCaption(ctx, W, H, capAt(v.currentTime));
-    $("exProg").firstElementChild.style.width = (duration ? v.currentTime / duration * 100 : 0) + "%";
-    (v.requestVideoFrameCallback ? v.requestVideoFrameCallback(draw) : requestAnimationFrame(draw));
-  };
-  mr.start(1000); await ac.resume().catch(() => {}); v.currentTime = 0;
-  await v.play(); draw();
-  await new Promise(r => v.onended = r);
-  stopDraw = true; mr.stop(); await finished; ac.close().catch(() => {});
-  const blob = new Blob(parts, { type: mr.mimeType || mime || "video/webm" }), ext = /mp4/.test(blob.type) ? "mp4" : "webm";
-  const url = URL.createObjectURL(blob), a = $("dlLink");
-  a.href = url; a.download = "video-captions-" + new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-") + "." + ext;
-  a.textContent = "הסרטון מוכן. אם ההורדה לא התחילה, לחצו כאן."; a.hidden = false;
-  $("exNote").textContent = ext === "mp4" ? "נשמר כ-MP4, מוכן להעלאה לטיקטוק." :
-    "נשמר כ-WebM (הדפדפן הזה לא יודע לשמור MP4). טיקטוק באתר מקבל WebM; באפליקציה ייתכן שתצטרכו להמיר.";
-  if (navigator.canShare && navigator.canShare({ files: [new File([blob], a.download, { type: blob.type })] })) {
-    const sh = document.createElement("button"); sh.textContent = "📤 שתף / שמור לגלריה"; sh.className = "primary";
-    sh.onclick = () => navigator.share({ files: [new File([blob], a.download, { type: blob.type })] }).catch(() => {});
-    $("exNote").after(sh);
-  }
-  a.click();
-  $("exportBtn").disabled = false; $("exProg").hidden = true;
-};
+  const out = cv.captureStream(30);
+  if (adest) adest.stream.getAudioTracks().forEach(t => out.addTrack(t));
+  const mime = pickMime(); const chunksOut = [];
+  try { exRec = new MediaRecorder(out, mime ? { mimeType: mime, videoBitsPerSecond: 12e6 } : undefined); } catch(e){ exRec = new MediaRecorder(out); }
+  exRec.ondataavailable = e => { if (e.data.size) chunksOut.push(e.data); };
+  const stopped = new Promise(r => exRec.onstop = r);
+  try { await playing; } catch(e) { finishEx(); toast("לא הצלחתי לנגן את הסרטון לשמירה. נסו שוב."); return; }
+  drawVideo(ctx, v, W, H); drawCaption(ctx, v.currentTime, W, H);
+  exRec.start(500);
+  await new Promise(res => {
+    const frame = () => {
+      if (!exporting) return res();
+      drawVideo(ctx, v, W, H); drawCaption(ctx, v.currentTime, W, H);
+      const p = duration ? clamp(v.currentTime / duration, 0, 1) : 0;
+      $("exPct").textContent = Math.round(p * 100) + "%"; $("exBar").style.width = p * 100 + "%";
+      if (v.ended) return res();
+      requestAnimationFrame(frame);
+    };
+    v.addEventListener("ended", () => setTimeout(res, 120), { once: true });
+    requestAnimationFrame(frame);
+  });
+  exRec.state !== "inactive" && exRec.stop(); await stopped;
+  finishEx();
+  if (exCancelled) return;
+  const blob = new Blob(chunksOut, { type: exRec.mimeType || mime || "video/webm" });
+  const ext = /mp4/.test(blob.type) ? "mp4" : "webm";
+  const name = "tiktok-" + new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-") + "." + ext;
+  const a = $("dlLink"); if (a.href.startsWith("blob:")) URL.revokeObjectURL(a.href);
+  a.href = URL.createObjectURL(blob); a.download = name;
+  $("resNote").textContent = (ext === "mp4" ? "קובץ MP4, מוכן להעלאה לטיקטוק." : "קובץ WebM (הדפדפן הזה לא יודע לשמור MP4). טיקטוק במחשב מקבל אותו; באפליקציה ייתכן שיהיה צריך להמיר.") + " גודל: " + (blob.size / 1048576).toFixed(1) + "MB";
+  const file = new File([blob], name, { type: blob.type });
+  const canShare = navigator.canShare && navigator.canShare({ files: [file] });
+  $("shareBtn").hidden = !canShare;
+  $("shareBtn").onclick = () => navigator.share({ files: [file], title: "סרטון" }).catch(() => {});
+  $("result").hidden = false; setTab("save");
+  if (!canShare) a.click();
+  toast("הסרטון נשמר ✓");
+}
+function finishEx(){ exporting = false; $("exOv").hidden = true; $("player").pause(); if (outGain) outGain.gain.value = 1; }
+$("exportBtn").onclick = doExport;
+$("exCancel").onclick = () => { exCancelled = true; exporting = false; };
+
+window.addEventListener("beforeunload", e => { if (recBlob && !$("edit").hidden) { e.preventDefault(); e.returnValue = ""; } });
 </script>
 </body>
 </html>

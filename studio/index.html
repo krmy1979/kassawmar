@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700;900&family=Heebo:wght@400;700;900&family=Secular+One&family=Suez+One&family=Karantina:wght@700&family=Amatic+SC:wght@700&family=Varela+Round&family=Frank+Ruhl+Libre:wght@700&display=swap">
 <style>
-/* Flow: home (script) → rec (camera + prompter) → edit (canvas caption overlay = exactly what gets exported) */
+/* Flow: home (script) → rec (camera + prompter) → edit (canvas preview = exactly what gets exported) */
 :root{
   --bg:#0b0b10; --s1:#15161e; --s2:#1e2029; --s3:#2a2c39; --line:#2e3040; --fg:#f5f5fa; --mut:#9b9eb3;
   --acc:#ff2d6f; --acc2:#25e0f0; --ok:#2fd28a; --warn:#ffcf4d; color-scheme:dark;
@@ -29,6 +29,7 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px soli
 .grow{flex:1}
 .mut{color:var(--mut)} .small{font-size:13px}
 .err{color:#ff8f8f;font-size:14px;min-height:1em}
+.okc{color:var(--ok)}
 input[type=range]{width:100%;accent-color:var(--acc);height:28px}
 textarea,input[type=text]{width:100%;border:1px solid var(--line);background:var(--bg);border-radius:12px;padding:10px 12px}
 .toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translateX(-50%);background:#fff;color:#111;padding:10px 16px;border-radius:999px;font-size:14px;z-index:100;box-shadow:0 8px 30px rgba(0,0,0,.4);max-width:90vw;text-align:center}
@@ -101,25 +102,27 @@ textarea,input[type=text]{width:100%;border:1px solid var(--line);background:var
 #edit{position:fixed;inset:0;display:flex;flex-direction:column;background:var(--bg)}
 .etop{display:flex;align-items:center;gap:8px;padding:calc(8px + env(safe-area-inset-top)) 12px 8px}
 .etop h2{margin:0;font-size:16px;flex:1;text-align:center}
-.stageWrap{flex:none;height:52dvh;display:flex;justify-content:center;align-items:center;padding:0 12px;min-height:0}
+.stageWrap{flex:none;height:48dvh;display:flex;justify-content:center;align-items:center;padding:0 12px;min-height:0}
 .stage{position:relative;width:200px;height:356px;flex:none;background:#000;border-radius:16px;overflow:hidden}
-.stage video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.stage video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0}
 .stage canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
 .playOv{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:64px;height:64px;border-radius:50%;background:rgba(0,0,0,.5);display:grid;place-items:center;font-size:26px;pointer-events:none}
 .hint{position:absolute;top:8px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.6);border-radius:999px;padding:4px 10px;font-size:12px;white-space:nowrap;pointer-events:none}
+.badge{position:absolute;bottom:8px;left:8px;background:rgba(0,0,0,.65);border-radius:999px;padding:3px 9px;font-size:11px;pointer-events:none}
 .ctrl{display:flex;align-items:center;gap:10px;padding:8px 14px 0;direction:ltr}
 .ctrl .tm{font-size:12px;color:var(--mut);font-variant-numeric:tabular-nums;min-width:38px}
 .ctrl .pb{width:40px;height:40px;border-radius:50%;padding:0;background:var(--s2);font-size:16px}
 .tl{position:relative;height:34px;margin:6px 14px 0;background:var(--s1);border-radius:10px;overflow:hidden;direction:ltr;touch-action:none}
 .tl .b{position:absolute;top:5px;bottom:5px;background:rgba(37,224,240,.22);border:1px solid rgba(37,224,240,.55);border-radius:6px;font-size:10px;line-height:22px;padding:0 4px;overflow:hidden;white-space:nowrap;color:#bff7fc;direction:rtl}
 .tl .b.sel{background:rgba(255,45,111,.35);border-color:var(--acc);color:#fff}
+.tl .cut{position:absolute;top:0;bottom:0;background:repeating-linear-gradient(45deg,rgba(255,80,80,.35) 0 6px,rgba(255,80,80,.15) 6px 12px);pointer-events:none}
 .tl .ph{position:absolute;top:0;bottom:0;width:2px;background:#fff;box-shadow:0 0 6px #fff;pointer-events:none}
-.tabs{display:flex;gap:4px;padding:10px 12px 0}
-.tabs button{flex:1;background:transparent;border-radius:12px;padding:8px 4px;font-size:13px;color:var(--mut);display:flex;flex-direction:column;align-items:center;gap:2px}
-.tabs button span{font-size:19px}
+.tabs{display:flex;gap:2px;padding:10px 8px 0}
+.tabs button{flex:1;background:transparent;border-radius:12px;padding:7px 2px;font-size:12px;color:var(--mut);display:flex;flex-direction:column;align-items:center;gap:2px;min-width:0}
+.tabs button span{font-size:18px}
 .tabs button.on{background:var(--s1);color:#fff}
 .panel{flex:1;overflow:auto;padding:10px 12px calc(16px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:10px}
-.panel>*,.sheetIn>*,.capList>*{flex-shrink:0}
+.panel>*,.sheetIn>*,.capList>*,.card>*{flex-shrink:0}
 .sheetIn .row button{font-size:14px;padding:9px 10px}
 .capList{display:flex;flex-direction:column;gap:6px}
 .cr{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center;background:var(--s1);border:1px solid transparent;border-radius:12px;padding:8px 10px;text-align:right;width:100%}
@@ -131,6 +134,8 @@ textarea,input[type=text]{width:100%;border:1px solid var(--line);background:var
 .presets{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px}
 .presets button{flex:none;width:92px;height:64px;border-radius:14px;background:#222533;display:grid;place-items:center;font-size:17px;font-weight:900;border:2px solid transparent}
 .presets button.on{border-color:var(--acc)}
+.chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px}
+.chips button{flex:none}
 .fonts{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
 .fonts button{padding:10px 4px;font-size:19px;border:2px solid transparent}
 .fonts button.on{border-color:var(--acc)}
@@ -138,12 +143,17 @@ textarea,input[type=text]{width:100%;border:1px solid var(--line);background:var
 .sw button{width:34px;height:34px;border-radius:50%;padding:0;border:2px solid rgba(255,255,255,.15)}
 .sw button.on{border-color:#fff;box-shadow:0 0 0 3px var(--acc)}
 .tog{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--s1);padding:10px 12px;border-radius:12px}
-.tog input{width:22px;height:22px;accent-color:var(--acc)}
+.tog input{width:22px;height:22px;accent-color:var(--acc);flex:none}
+.sl{display:grid;grid-template-columns:86px 1fr 40px;gap:8px;align-items:center;font-size:14px}
+.sl b{font-size:12px;color:var(--mut);text-align:center;font-variant-numeric:tabular-nums}
+.sec{font-size:15px;font-weight:700;margin-top:6px}
 .prog{height:8px;border-radius:4px;background:var(--s3);overflow:hidden}
 .prog div{height:100%;width:0;background:linear-gradient(90deg,#ff2d6f,#ff6a3d);transition:width .2s}
 .exOv{position:fixed;inset:0;z-index:60;background:rgba(8,8,12,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:30px;text-align:center}
 .exOv .pct{font-size:46px;font-weight:900}
 .exOv .prog{width:min(320px,80vw)}
+.hold{user-select:none;-webkit-user-select:none;touch-action:none}
+
 /* phone held sideways */
 @media (orientation:landscape) and (max-height:620px){
   .prompter{left:230px}
@@ -167,12 +177,12 @@ textarea,input[type=text]{width:100%;border:1px solid var(--line);background:var
 <!-- ================= HOME ================= -->
 <section id="home" class="screen">
   <div class="wrap">
-    <div class="brand"><div class="logo">🎬</div><div><h1>סטודיו כתוביות</h1><p>טלפרומפטר, צילום וכתוביות לטיקטוק</p></div></div>
-    <div class="steps"><div><b>1. כותבים</b>מה להגיד</div><div><b>2. מצלמים</b>הטקסט רץ מולכם</div><div><b>3. כתוביות</b>עריכה ושמירה</div></div>
+    <div class="brand"><div class="logo">🎬</div><div><h1>סטודיו כתוביות</h1><p>טלפרומפטר, צילום, כתוביות ושיפור סרטונים לטיקטוק</p></div></div>
+    <div class="steps"><div><b>1. כותבים</b>מה להגיד</div><div><b>2. מצלמים</b>הטקסט רץ מולכם</div><div><b>3. משפרים</b>כתוביות, קול ותמונה</div></div>
     <div class="card">
       <div class="row"><h2 class="grow">התסריט</h2><button class="chip" id="clearScript">נקה</button></div>
       <textarea id="script" placeholder="היי לכולם! היום אני רוצה לספר לכם על…"></textarea>
-      <div class="small mut" id="stats">כל שורה בתסריט תהפוך לכתובית. שורות קצרות = כתוביות קצרות.</div>
+      <div class="small mut" id="stats"></div>
     </div>
     <div class="card">
       <h2>קצב הקריאה</h2>
@@ -182,7 +192,7 @@ textarea,input[type=text]{width:100%;border:1px solid var(--line);background:var
     </div>
     <button class="primary big" id="goRec">🎥 לצילום</button>
     <button class="big" id="backToEdit" hidden>✏️ חזרה לעריכת הסרטון האחרון</button>
-    <button id="importBtn">📁 יש לי כבר סרטון. הוספת כתוביות לסרטון קיים</button>
+    <button id="importBtn">📁 יש לי כבר סרטון. הוספת כתוביות ושיפורים לסרטון קיים</button>
     <input type="file" id="importInput" accept="video/*" hidden>
     <div class="err" id="homeErr" role="status"></div>
   </div>
@@ -230,13 +240,14 @@ textarea,input[type=text]{width:100%;border:1px solid var(--line);background:var
   <div class="lbl">איכות וידאו</div>
   <div class="seg" id="segQual"><button data-v="720">720p</button><button data-v="1080">1080p (מומלץ)</button><button data-v="4k">4K</button></div>
   <div class="lbl">תצוגת מצלמה</div>
-  <div class="seg" id="segFit"><button data-v="cover">ממלא מסך (9:16)</button><button data-v="contain">כל התמונה, בלי חיתוך</button></div>
+  <div class="seg" id="segFit"><button data-v="cover">ממלא מסך</button><button data-v="contain">כל התמונה, בלי חיתוך</button></div>
   <div class="lbl">גובה אזור הטקסט</div>
-  <div class="seg" id="segPH"><button data-v="s">קטן</button><button data-v="m">בינוני</button><button data-v="l">גדול</button></div>
+  <div class="seg" id="segPH"><button data-v="s">קטן (עיניים קרובות לעדשה)</button><button data-v="m">בינוני</button><button data-v="l">גדול</button></div>
   <div class="lbl">ספירה לאחור</div>
   <div class="seg" id="segCD"><button data-v="0">בלי</button><button data-v="3">3 שניות</button><button data-v="5">5 שניות</button></div>
   <label class="tog"><span>תצוגת מראה במצלמה הקדמית</span><input type="checkbox" id="optMirror"></label>
   <label class="tog"><span>קווי עזר (רשת)</span><input type="checkbox" id="optGrid"></label>
+  <div class="small mut">💡 טיפ לקשר עין: בחרו גובה טקסט "קטן" ושימו את הטלפון בגובה העיניים. ככה העיניים כמעט לא זזות מהעדשה.</div>
   <div class="small mut" id="camInfo"></div>
 </div></div>
 
@@ -249,9 +260,11 @@ textarea,input[type=text]{width:100%;border:1px solid var(--line);background:var
   </div>
   <div class="stageWrap"><div class="stage" id="stage">
     <video id="player" playsinline preload="auto"></video>
+    <canvas id="vcv"></canvas>
     <canvas id="ov"></canvas>
     <div class="playOv" id="playOv">▶</div>
     <div class="hint" id="hint">גררו את הכתובית כדי להזיז · געו בה כדי לערוך</div>
+    <div class="badge" id="badge" hidden></div>
   </div></div>
   <div class="ctrl">
     <button class="pb" id="playBtn" aria-label="נגן">▶</button>
@@ -259,25 +272,48 @@ textarea,input[type=text]{width:100%;border:1px solid var(--line);background:var
     <input type="range" id="scrub" min="0" max="1000" value="0" class="grow" aria-label="מיקום בסרטון">
     <span class="tm" id="tDur">0:00</span>
   </div>
-  <div class="tl" id="tl"><div id="tlCaps"></div><div class="ph" id="ph"></div></div>
+  <div class="tl" id="tl"><div id="tlCuts"></div><div id="tlCaps"></div><div class="ph" id="ph"></div></div>
   <div class="tabs" id="tabs">
     <button data-tab="caps" class="on"><span>💬</span>כתוביות</button>
     <button data-tab="style"><span>🎨</span>עיצוב</button>
-    <button data-tab="lang"><span>🌍</span>אנגלית</button>
+    <button data-tab="fx"><span>✨</span>תמונה</button>
+    <button data-tab="audio"><span>🎙️</span>קול</button>
+    <button data-tab="cut"><span>✂️</span>עריכה</button>
     <button data-tab="save"><span>⬇</span>שמירה</button>
   </div>
 
+  <!-- captions -->
   <div class="panel" id="p-caps">
-    <div class="seg" id="segSrc"><button data-v="script">לפי התסריט</button><button data-v="speech">לפי זיהוי הדיבור</button></div>
+    <div class="seg" id="segSrc"><button data-v="script">לפי התסריט</button><button data-v="speech">זיהוי מהיר</button><button data-v="ai">🤖 AI מדויק</button></div>
     <div class="small mut" id="srcNote"></div>
+    <div class="card" id="aiCard" hidden>
+      <h2>🤖 זיהוי דיבור מדויק</h2>
+      <div class="small mut" id="aiIntro">מנוע בינה מלאכותית (Whisper) מקשיב לסרטון ורושם בדיוק מה אמרתם ומתי. הוא רץ בתוך הטלפון, חינם. בפעם הראשונה הוא מוריד את המנוע, ואחר כך המנוע נשמר במכשיר.</div>
+      <div class="lbl">מנוע</div>
+      <div class="seg" id="segModel"><button data-v="base">מהיר (~80MB)</button><button data-v="small">מדויק (~250MB)</button></div>
+      <div class="small mut" id="modelTip"></div>
+      <button class="primary" id="aiRun">🤖 זהה את הדיבור</button>
+      <div class="prog" id="aiProg" hidden><div></div></div>
+      <div class="small" id="aiStatus" role="status"></div>
+      <div class="lbl" id="aiUseLbl" hidden>מה להציג?</div>
+      <div class="seg" id="segAiUse" hidden><button data-v="sync">התסריט שלי בתזמון מדויק</button><button data-v="text">הטקסט שזוהה</button></div>
+    </div>
     <div class="row">
       <button class="grow" id="addCap">＋ כתובית בנקודה הנוכחית</button>
       <button id="shiftE" aria-label="הכול מוקדם יותר">⏪ 0.2</button>
       <button id="shiftL" aria-label="הכול מאוחר יותר">0.2 ⏩</button>
     </div>
     <div class="capList" id="capList"></div>
+    <div class="sec">🌍 אנגלית</div>
+    <div class="lbl">מה מופיע על המסך</div>
+    <div class="seg" id="segLang"><button data-v="he">עברית</button><button data-v="both">עברית + אנגלית</button><button data-v="en">רק אנגלית</button></div>
+    <button id="trAll">🌍 תרגם את כל הכתוביות לאנגלית</button>
+    <div class="prog" id="trProg" hidden><div></div></div>
+    <div class="err" id="trErr" role="status"></div>
+    <div class="small mut">התרגום נעשה בשירות התרגום החינמי MyMemory, ולכן הטקסט נשלח אליו. תקנו שורות ב-✏️.</div>
   </div>
 
+  <!-- caption style -->
   <div class="panel" id="p-style" hidden>
     <div class="lbl">סגנון מוכן</div>
     <div class="presets" id="presets"></div>
@@ -297,25 +333,75 @@ textarea,input[type=text]{width:100%;border:1px solid var(--line);background:var
     <div class="seg" id="segPos"><button data-v=".2">למעלה</button><button data-v=".5">אמצע</button><button data-v=".72">למטה</button></div>
   </div>
 
-  <div class="panel" id="p-lang" hidden>
-    <div class="lbl">מה מופיע על המסך</div>
-    <div class="seg" id="segLang"><button data-v="he">עברית</button><button data-v="both">עברית + אנגלית</button><button data-v="en">רק אנגלית</button></div>
-    <button class="primary" id="trAll">🌍 תרגם את כל הכתוביות לאנגלית</button>
-    <div class="prog" id="trProg" hidden><div></div></div>
-    <div class="err" id="trErr" role="status"></div>
-    <div class="small mut">התרגום נעשה בשירות התרגום החינמי MyMemory, ולכן הטקסט נשלח אליו. התרגום האוטומטי לא תמיד מדויק. אפשר לתקן כל שורה בלשונית "כתוביות" ← ✏️.</div>
+  <!-- picture -->
+  <div class="panel" id="p-fx" hidden>
+    <div class="lbl">פילטר מוכן</div>
+    <div class="chips" id="fxPresets"></div>
+    <div id="fxSliders"></div>
+    <div class="row">
+      <button class="grow hold" id="fxHold">👁 החזיקו להשוואה עם המקור</button>
+      <button id="fxReset">איפוס</button>
+    </div>
+    <div class="small mut" id="fxNote">השיפורים נראים בתצוגה ונשמרים בסרטון הסופי. "החלקת עור" מחליקה את העור ושומרת על חדות של עיניים וקווים.</div>
   </div>
 
+  <!-- sound -->
+  <div class="panel" id="p-audio" hidden>
+    <div class="small" id="auStatus" role="status"></div>
+    <button class="primary" id="auAuto">✨ שיפור קול אוטומטי</button>
+    <div class="sec">הסרת רעשי רקע</div>
+    <div class="seg" id="segDn"><button data-v="0">כבוי</button><button data-v="1">עדין</button><button data-v="2">בינוני</button><button data-v="3">חזק</button></div>
+    <div class="small mut">מזגן, מאוורר, רחוב, זמזום. "חזק" מנקה יותר, אבל עלול לשנות קצת את צליל הקול.</div>
+    <label class="tog"><span>איזון עוצמה (הקול לא יקפוץ בין חזק לחלש)</span><input type="checkbox" id="optLevel"></label>
+    <label class="tog"><span>חיזוק קול (צלול וברור יותר)</span><input type="checkbox" id="optBoost"></label>
+    <div class="prog" id="auProg" hidden><div></div></div>
+    <button class="hold" id="auHold">👂 החזיקו כדי לשמוע את המקור (תוך כדי ניגון)</button>
+    <div class="sec">🎵 מוזיקת רקע</div>
+    <div class="row"><button class="grow" id="musicBtn">📁 בחירת שיר מהטלפון</button><button id="musicDel" class="danger" hidden>🗑</button></div>
+    <input type="file" id="musicInput" accept="audio/*" hidden>
+    <div class="small mut" id="musicName">השתמשו רק במוזיקה שמותר לכם להשתמש בה. בטיקטוק אפשר גם להוסיף מוזיקה מהספרייה של האפליקציה אחרי ההעלאה.</div>
+    <div id="musicCtl" hidden>
+      <div class="sl"><span>עוצמה</span><input type="range" id="musicVol" min="0" max="100"><b id="musicVolV"></b></div>
+      <label class="tog"><span>להנמיך את המוזיקה כשמדברים</span><input type="checkbox" id="optDuck"></label>
+    </div>
+  </div>
+
+  <!-- edit: trim / silences / zoom / logo -->
+  <div class="panel" id="p-cut" hidden>
+    <div class="sec">✂️ חיתוך התחלה וסוף</div>
+    <div class="row">
+      <button class="grow" id="trimS">⏮ להתחיל מכאן</button>
+      <button class="grow" id="trimE">לסיים כאן ⏭</button>
+      <button id="trimR">איפוס</button>
+    </div>
+    <div class="small mut" id="trimInfo"></div>
+    <div class="sec">🤐 חיתוך שתיקות (ג'אמפ קאט)</div>
+    <label class="tog"><span>לחתוך אוטומטית את הרגעים שבהם לא מדברים</span><input type="checkbox" id="optCut"></label>
+    <div class="seg" id="segCut"><button data-v="soft">רק שתיקות ארוכות</button><button data-v="mid">רגיל</button><button data-v="hard">קצבי (טיקטוק)</button></div>
+    <div class="small mut" id="cutInfo"></div>
+    <div class="sec">🔍 זום דינמי</div>
+    <label class="tog"><span>זום קטן לסירוגין בין כתוביות (נותן תחושה של כמה מצלמות)</span><input type="checkbox" id="optZoom"></label>
+    <div class="sec">🏷️ לוגו / שם משתמש</div>
+    <input type="text" id="wmText" placeholder="למשל @ronen" aria-label="טקסט סימן מים" dir="auto">
+    <div class="row"><button class="grow" id="wmImgBtn">🖼️ הוספת לוגו (תמונה)</button><button id="wmImgDel" class="danger" hidden>🗑</button></div>
+    <input type="file" id="wmImgInput" accept="image/*" hidden>
+    <div class="lbl">מיקום</div>
+    <div class="seg" id="segWm"><button data-v="tr">↗ ימין למעלה</button><button data-v="tl">↖ שמאל למעלה</button><button data-v="br">↘ ימין למטה</button><button data-v="bl">↙ שמאל למטה</button></div>
+    <div class="sl"><span>גודל</span><input type="range" id="wmSize" min="50" max="200"><b id="wmSizeV"></b></div>
+  </div>
+
+  <!-- save -->
   <div class="panel" id="p-save" hidden>
     <div class="card">
-      <h2>שמירת הסרטון עם הכתוביות</h2>
-      <div class="small mut">הסרטון נשמר באיכות 1080p עם הכתוביות צרובות עליו: לאורך (1080×1920) לטיקטוק, או לרוחב (1920×1080) ליוטיוב. "אוטומטי" בוחר לפי איך שהחזקתם את הטלפון. השמירה לוקחת בערך כמו אורך הסרטון, כי הסרטון מתנגן תוך כדי.</div>
+      <h2>שמירת הסרטון</h2>
+      <div class="small mut">הסרטון נשמר באיכות 1080p עם כל השיפורים והכתוביות: לאורך (1080×1920) לטיקטוק, או לרוחב (1920×1080) ליוטיוב. השמירה לוקחת בערך כמו אורך הסרטון.</div>
       <div class="lbl">צורת הסרטון</div>
-      <div class="seg" id="segFmt"><button data-v="auto">אוטומטי</button><button data-v="port">לאורך 9:16 (טיקטוק)</button><button data-v="land">לרוחב 16:9 (יוטיוב)</button></div>
+      <div class="seg" id="segFmt"><button data-v="auto">אוטומטי</button><button data-v="port">לאורך 9:16</button><button data-v="land">לרוחב 16:9</button></div>
       <div class="lbl">כשהצילום לא באותה צורה</div>
       <div class="seg" id="segFit2"><button data-v="cover">ממלא מסך</button><button data-v="contain">כל התמונה</button></div>
+      <div class="small mut" id="saveSum"></div>
       <button class="primary big" id="exportBtn">⬇ שמור סרטון</button>
-      <button id="saveOrig">שמור את הצילום המקורי בלי כתוביות (איכות מקורית)</button>
+      <button id="saveOrig">שמור את הצילום המקורי בלי שינויים (איכות מקורית)</button>
     </div>
     <div id="result" class="card" hidden>
       <h2>✅ הסרטון מוכן</h2>
@@ -346,7 +432,7 @@ textarea,input[type=text]{width:100%;border:1px solid var(--line);background:var
   <div style="font-size:40px">🎬</div>
   <div class="pct" id="exPct">0%</div>
   <div class="prog"><div id="exBar"></div></div>
-  <div class="mut">שומר את הסרטון עם הכתוביות… השאירו את המסך פתוח.</div>
+  <div class="mut">שומר את הסרטון עם כל השיפורים… השאירו את המסך פתוח.</div>
   <button id="exCancel">ביטול</button>
 </div>
 
@@ -360,6 +446,7 @@ const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const words = t => t.trim().split(/\s+/).filter(Boolean);
 const fmt = t => { t = Math.max(0, t || 0); return Math.floor(t / 60) + ":" + String(Math.floor(t % 60)).padStart(2, "0"); };
 const fmtP = t => { t = Math.max(0, t || 0); return Math.floor(t / 60) + ":" + (t % 60).toFixed(1).padStart(4, "0"); };
+const sleep = ms => new Promise(r => setTimeout(r, ms));
 let toastT;
 function toast(m){ let el = document.querySelector(".toast"); if (!el) { el = document.createElement("div"); el.className = "toast"; el.setAttribute("role","status"); document.body.appendChild(el); }
   el.textContent = m; el.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => el.hidden = true, 3200); }
@@ -370,9 +457,10 @@ function segInit(id, get, set){
   el.addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; set(b.dataset.v); paint(); });
   paint(); return paint;
 }
+function bar(el, p){ el.hidden = p == null; if (p != null) el.firstElementChild.style.width = clamp(p, 0, 1) * 100 + "%"; }
 
 // settings
-const S = Object.assign({ fmt: "auto", speed: 130, psize: 34, ph: "m", cd: 3, quality: "1080", fit: "cover", mirror: true, grid: false }, LS.get("st2_set", {}));
+const S = Object.assign({ fmt: "auto", speed: 130, psize: 34, ph: "m", cd: 3, quality: "1080", fit: "cover", mirror: true, grid: false, model: "base" }, LS.get("st2_set", {}));
 const saveS = () => LS.set("st2_set", S);
 
 // ================= HOME =================
@@ -403,7 +491,7 @@ function chunkScript(t){
 }
 
 $("goRec").onclick = () => { $("homeErr").textContent = ""; openCamera(); };
-$("backToEdit").onclick = () => { show("edit"); startEditLoop(); };
+$("backToEdit").onclick = () => { show("edit"); fitStage(); startEditLoop(); };
 $("importBtn").onclick = () => $("importInput").click();
 $("importInput").onchange = () => {
   const f = $("importInput").files[0]; if (!f) return;
@@ -425,7 +513,7 @@ async function openCamera(){
   const [w, h] = QUAL[S.quality];
   const audio = { echoCancellation: true, noiseSuppression: true, autoGainControl: true };
   try {
-    // ask for a landscape-style resolution: phones rotate it to portrait themselves and keep full sensor quality
+    // ask for a landscape-style resolution: phones rotate it themselves and keep the full sensor quality
     stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: facing, width: { ideal: w }, height: { ideal: h }, frameRate: { ideal: 30 }, resizeMode: { ideal: "none" } }, audio });
   } catch(e) {
     try { stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: facing }, audio: true }); }
@@ -489,7 +577,6 @@ function buildPrompter(){
   cancelAnimationFrame(raf); pLast = performance.now(); raf = requestAnimationFrame(tick);
 }
 const markerY = () => $("prompter").clientHeight * 0.32;
-// pixels per second = (text height / words) × words per second
 const pxPerSec = () => ($("ptxt").scrollHeight / Math.max(1, words($("script").value).length)) * (S.speed / 60);
 let pDrag = null;
 function tick(now){
@@ -508,7 +595,6 @@ function tick(now){
   if (cur !== lastCur) { lineEls.forEach((el, i) => el.className = "pl" + (i < cur ? " past" : i === cur ? " cur" : "")); lastCur = cur; }
   raf = requestAnimationFrame(tick);
 }
-// drag to scroll, tap to pause
 $("prompter").addEventListener("pointerdown", e => { pDrag = { y: e.clientY, p: pPos, moved: false }; $("prompter").setPointerCapture(e.pointerId); });
 $("prompter").addEventListener("pointermove", e => {
   if (!pDrag) return; const dy = e.clientY - pDrag.y;
@@ -537,7 +623,7 @@ async function countdown(){
   if (!stream) { await openCamera(); if (!stream) return; }
   if (S.cd) {
     $("recBtn").disabled = true; $("count").hidden = false;
-    for (let n = S.cd; n > 0; n--) { $("count").textContent = n; await new Promise(r => setTimeout(r, 850)); }
+    for (let n = S.cd; n > 0; n--) { $("count").textContent = n; await sleep(850); }
     $("count").hidden = true; $("recBtn").disabled = false;
   }
   startRec();
@@ -567,7 +653,7 @@ function stopRec(discard){
   if (recorder && recorder.state !== "inactive") { if (discard) recorder.onstop = null; recorder.stop(); }
 }
 
-// ---- speech recognition while recording (optional; when it fails the captions come from the script)
+// ---- quick speech recognition while recording (browser built-in; optional)
 let sr = null, srOn = false, segStart = {};
 function startSpeech(){
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -579,7 +665,7 @@ function startSpeech(){
       for (let i = e.resultIndex; i < e.results.length; i++) {
         const key = sr._b + "_" + i;
         if (segStart[key] === undefined) segStart[key] = Math.max(0, t - 0.7);
-        if (e.results[i].isFinal) { const txt = e.results[i][0].transcript.trim(); if (txt) splitSpeech(txt, segStart[key], t); }
+        if (e.results[i].isFinal) { const txt = e.results[i][0].transcript.trim(); if (txt) speechSegs.push(...splitTimed(txt, segStart[key], t)); }
       }
     };
     sr.onend = () => { if (srOn && recording) { try { sr._b = Date.now(); sr.start(); } catch(e){} } };
@@ -588,11 +674,13 @@ function startSpeech(){
   } catch(e){ sr = null; }
 }
 function stopSpeech(){ srOn = false; if (sr) { try { sr.stop(); } catch(e){} } }
-function splitSpeech(txt, a, b){
-  const ws = words(txt), ps = [];
+// one recognized sentence → short captions spread over its time span
+function splitTimed(txt, a, b){
+  const ws = words(txt), ps = [], out = [];
   for (let i = 0; i < ws.length; i += 5) ps.push(ws.slice(i, i + 5).join(" "));
   const span = Math.max(0.8, b - a);
-  ps.forEach((p, k) => speechSegs.push({ start: a + span * k / ps.length, end: a + span * (k + 1) / ps.length, he: p, en: "" }));
+  ps.forEach((p, k) => out.push({ start: a + span * k / ps.length, end: a + span * (k + 1) / ps.length, he: p, en: "" }));
+  return out;
 }
 
 // ================= EDIT =================
@@ -610,22 +698,26 @@ const PRESETS = [
   { n: "נקי", s: { box: "shadow", color: "#ffffff", karaoke: false, anim: false, font: 6 } }
 ];
 let FMT = { W: 1080, H: 1920 };
+let ST = Object.assign({ font: 0, color: "#ffffff", hl: "#ffe14d", box: "outline", karaoke: true, anim: true, size: 88, lang: "he", x: 0.5, y: 0.72 }, LS.get("st2_style", {}));
+const saveST = () => LS.set("st2_style", ST);
+let caps = [], capSrc = "script", duration = 0, videoUrl = "", edited = false, sel = -1, editLoopOn = false;
+// per-video edit state
+let ED = { trimS: 0, trimE: 0, cut: false, cutLvl: "mid", zoom: false };
+let keep = null; // [{s,e}] kept parts of the video (after trim + silence cut)
+
 function updFmt(){
   const v = $("player"), land = S.fmt === "land" || (S.fmt !== "port" && v.videoWidth > v.videoHeight);
   FMT = land ? { W: 1920, H: 1080 } : { W: 1080, H: 1920 };
-  fitStage();
+  fitStage(); vDirty = true;
 }
 function fitStage(){
   const wrap = document.querySelector(".stageWrap"), st = $("stage");
   const aw = wrap.clientWidth - 24, ah = wrap.clientHeight; if (aw <= 0 || ah <= 0) return;
   const k = Math.min(aw / FMT.W, ah / FMT.H);
-  st.style.width = Math.floor(FMT.W * k) + "px"; st.style.height = Math.floor(FMT.H * k) + "px";
+  st.style.width = Math.floor(FMT.W * k) + "px"; st.style.height = Math.floor(FMT.H * k) + "px"; vDirty = true;
 }
 window.addEventListener("resize", () => setTimeout(fitStage, 50));
 if (window.ResizeObserver) new ResizeObserver(() => fitStage()).observe(document.querySelector(".stageWrap"));
-let ST = Object.assign({ font: 0, color: "#ffffff", hl: "#ffe14d", box: "outline", karaoke: true, anim: true, size: 88, lang: "he", x: 0.5, y: 0.72 }, LS.get("st2_style", {}));
-const saveST = () => LS.set("st2_style", ST);
-let caps = [], capSrc = "script", duration = 0, videoUrl = "", edited = false, sel = -1, editLoopOn = false;
 
 function capsFromScript(){
   const n = chunks.length, ts = Array.from({ length: n }, (_, i) => times[i] == null ? null : times[i]);
@@ -640,18 +732,24 @@ function capsFromScript(){
   if (n) ts[0] = Math.min(ts[0], 0.05);
   return chunks.map((c, i) => ({ start: ts[i], end: i + 1 < n ? ts[i + 1] : Math.max(ts[i] + 1.5, D), he: c, en: "" }));
 }
-const paintSrc = segInit("segSrc", () => capSrc, v => setSource(v, true));
+const paintSrc = segInit("segSrc", () => capSrc === "aisync" ? "ai" : capSrc, v => setSource(v, true));
 function setSource(src, ask){
+  if (src === "ai") {
+    $("aiCard").hidden = false; paintAi();
+    if (aiChunks) { applyAi(aiUse, ask); } else { capSrc = "ai"; $("srcNote").textContent = ""; paintSrc(); }
+    return;
+  }
+  $("aiCard").hidden = true;
   if (ask && edited && !confirm("להחליף את הכתוביות? השינויים שעשיתם יימחקו.")) { paintSrc(); return; }
   capSrc = src; edited = false; sel = -1;
   if (src === "speech") {
     caps = speechSegs.map(s => ({ ...s }));
-    $("srcNote").textContent = caps.length ? "אלה המילים שזוהו בדיבור בזמן הצילום. אפשר לתקן כל שורה." :
-      "לא זוהה דיבור בצילום הזה (בחלק מהטלפונים הדפדפן לא מאפשר זיהוי דיבור יחד עם המצלמה). השתמשו בכתוביות לפי התסריט.";
+    $("srcNote").textContent = caps.length ? "המילים שהדפדפן זיהה בזמן הצילום. לדיוק גבוה יותר נסו 🤖 AI מדויק." :
+      "לא זוהה דיבור בזמן הצילום (בחלק מהטלפונים הדפדפן לא מאפשר זיהוי יחד עם המצלמה). נסו 🤖 AI מדויק.";
   } else {
     caps = capsFromScript();
-    $("srcNote").textContent = caps.length ? "הכתוביות לקוחות מהתסריט, ומתוזמנות לפי הרגע שבו כל שורה עברה מול העיניים שלכם בטלפרומפטר."
-      : "אין תסריט. עברו ל'לפי זיהוי הדיבור' או הוסיפו כתוביות עם ＋.";
+    $("srcNote").textContent = caps.length ? "הכתוביות לקוחות מהתסריט ומתוזמנות לפי הטלפרומפטר. לתזמון מדויק לפי הקול: 🤖 AI מדויק ← \"התסריט שלי בתזמון מדויק\"."
+      : "אין תסריט. נסו 🤖 AI מדויק, או הוסיפו כתוביות עם ＋.";
   }
   paintSrc(); renderCaps();
 }
@@ -661,14 +759,17 @@ function openEditor(fromRec){
   const v = $("player");
   if (videoUrl) URL.revokeObjectURL(videoUrl);
   videoUrl = URL.createObjectURL(recBlob);
+  stopBuf(); v.muted = false;
   v.src = videoUrl; v.load();
   duration = fromRec ? recDur : 0;
-  v.style.objectFit = S.fit;
+  ED = { trimS: 0, trimE: 0, cut: false, cutLvl: ED.cutLvl || "mid", zoom: ED.zoom };
+  origBuf = null; mixBuf = null; dnCache = {}; voiced = null; aiChunks = null; aiUse = null;
   $("result").hidden = true; $("backToEdit").hidden = false;
   if (!chunks.length) chunks = chunkScript($("script").value);
   setSource(chunks.length || !speechSegs.length ? "script" : "speech");
-  setTab("caps"); paintStyleUI(); updFmt(); preloadFonts(); updDur(); startEditLoop();
+  setTab("caps"); paintStyleUI(); paintFx(); paintCut(); preloadFonts(); updFmt(); updDur(); startEditLoop();
   $("hint").hidden = false; setTimeout(() => $("hint").hidden = true, 5000);
+  decodeAudio(recBlob);
 }
 // MediaRecorder webm files often report duration = Infinity until you seek to the end
 $("player").addEventListener("loadedmetadata", () => {
@@ -677,37 +778,400 @@ $("player").addEventListener("loadedmetadata", () => {
   const onT = () => { v.removeEventListener("timeupdate", onT); if (isFinite(v.duration)) setDuration(v.duration); v.currentTime = 0; };
   v.addEventListener("timeupdate", onT); v.currentTime = 1e7;
 });
+$("player").addEventListener("loadeddata", () => vDirty = true);
+$("player").addEventListener("seeked", () => vDirty = true);
 function setDuration(d){
+  if (!d || !isFinite(d)) return;
   const before = duration; duration = d; updDur();
   if (Math.abs(before - d) > 0.3 && capSrc === "script" && !edited) { caps = capsFromScript(); renderCaps(); }
 }
-function updDur(){ $("tDur").textContent = fmt(duration); renderTimeline(); }
+function updDur(){ $("tDur").textContent = fmt(duration); calcKeep(); renderTimeline(); }
 function preloadFonts(){ if (document.fonts) for (const F of FONTS) document.fonts.load(`${F.w} 60px "${F.f}"`, "אבג abc").catch(() => {}); }
 
-// ---- playback (audio goes through an AudioContext so the export can record it)
-let ac = null, srcNode = null, outGain = null, adest = null;
-function ensureAudio(){
-  if (ac) { ac.resume().catch(() => {}); return; }
-  try {
+// ================= AUDIO =================
+// The original track is decoded once; enhancements are rendered into mixBuf, which then plays in sync with the (muted) video.
+let ac = null, outGain = null, adest = null, elSrc = null, bufSrc = null, origBuf = null, mixBuf = null, dnCache = {}, musicBuf = null, voiced = null;
+let abHold = false, auBusy = false, auQueued = false;
+const AU = Object.assign({ dn: 0, level: false, boost: false, mvol: 25, duck: true }, LS.get("st2_au", {}));
+const saveAU = () => LS.set("st2_au", AU);
+function getAC(){
+  if (!ac) {
     ac = new (window.AudioContext || window.webkitAudioContext)();
-    srcNode = ac.createMediaElementSource($("player"));
-    outGain = ac.createGain(); adest = ac.createMediaStreamDestination();
-    srcNode.connect(outGain); outGain.connect(ac.destination); srcNode.connect(adest);
-    ac.resume().catch(() => {});
-  } catch(e){ ac = null; }
+    outGain = ac.createGain(); outGain.connect(ac.destination);
+    adest = ac.createMediaStreamDestination ? ac.createMediaStreamDestination() : null;
+  }
+  return ac;
 }
-function togglePlay(){ const v = $("player"); ensureAudio(); if (v.paused) { if (v.ended || v.currentTime >= duration - 0.05) v.currentTime = 0; v.play().catch(() => {}); } else v.pause(); }
+function ensureElSrc(){ // route the video element's own sound through the graph too (used when there are no enhancements)
+  getAC(); ac.resume().catch(() => {});
+  if (!elSrc) { try { elSrc = ac.createMediaElementSource($("player")); elSrc.connect(outGain); if (adest) elSrc.connect(adest); } catch(e){} }
+}
+async function decodeAudio(blob){
+  paintAudio("טוען את הקול…");
+  try {
+    const ab = await blob.arrayBuffer(), ctx = getAC();
+    origBuf = await new Promise((res, rej) => { const p = ctx.decodeAudioData(ab, res, rej); if (p && p.then) p.then(res, rej); });
+    if (!duration || !isFinite(duration)) setDuration(origBuf.duration);
+    voiced = voiceActivity(toMono(origBuf), origBuf.sampleRate);
+    calcKeep(); renderTimeline(); paintCut();
+    await rebuildMix();
+    paintAudio("");
+  } catch(e) {
+    origBuf = null; console.warn(e);
+    paintAudio("⚠️ הדפדפן הזה לא מצליח לפענח את הקול של הסרטון, ולכן שיפורי הקול, חיתוך השתיקות וה-AI לא זמינים. נסו Chrome.");
+  }
+  paintAi();
+}
+function paintAudio(msg){
+  if (msg != null) $("auStatus").textContent = msg;
+  paintDn && paintDn();
+  $("optLevel").checked = AU.level; $("optBoost").checked = AU.boost;
+  $("musicVol").value = AU.mvol; $("musicVolV").textContent = AU.mvol + "%"; $("optDuck").checked = AU.duck;
+  $("musicCtl").hidden = !musicBuf; $("musicDel").hidden = !musicBuf;
+  for (const id of ["auAuto", "segDn", "optLevel", "optBoost", "musicBtn", "auHold"]) {
+    const el = $(id); if (el.tagName === "DIV") el.querySelectorAll("button").forEach(b => b.disabled = !origBuf); else el.disabled = !origBuf;
+  }
+}
+function toMono(buf){
+  const n = buf.length, m = new Float32Array(n), ch = buf.numberOfChannels;
+  for (let c = 0; c < ch; c++) { const d = buf.getChannelData(c); for (let i = 0; i < n; i++) m[i] += d[i] / ch; }
+  return m;
+}
+const anyAudioFx = () => AU.dn > 0 || AU.level || AU.boost || (musicBuf && AU.mvol > 0);
+function queueMix(){ clearTimeout(queueMix.t); queueMix.t = setTimeout(rebuildMix, 250); }
+async function rebuildMix(){
+  if (!origBuf) return;
+  if (auBusy) { auQueued = true; return; }
+  auBusy = true;
+  try {
+    do {
+      auQueued = false;
+      if (!anyAudioFx()) { mixBuf = null; }
+      else {
+        const sr = origBuf.sampleRate, n = origBuf.length;
+        let L, R;
+        if (AU.dn > 0 || AU.level || AU.boost) {
+          let mono = toMono(origBuf);
+          if (AU.dn > 0) {
+            if (!dnCache[AU.dn]) { paintAudio("מנקה רעשי רקע… 0%"); bar($("auProg"), 0);
+              dnCache[AU.dn] = await spectralGate(mono, sr, AU.dn, p => { bar($("auProg"), p); $("auStatus").textContent = "מנקה רעשי רקע… " + Math.round(p * 100) + "%"; }); }
+            mono = dnCache[AU.dn].slice();
+          }
+          if (AU.boost || AU.level) mono = await voiceChain(mono, sr);
+          if (AU.level) normalize(mono);
+          L = mono; R = mono.slice();
+        } else { L = origBuf.getChannelData(0).slice(); R = (origBuf.numberOfChannels > 1 ? origBuf.getChannelData(1) : origBuf.getChannelData(0)).slice(); }
+        if (musicBuf && AU.mvol > 0) mixMusic(L, R, sr);
+        const b = getAC().createBuffer(2, n, sr); b.copyToChannel(L, 0); b.copyToChannel(R, 1); mixBuf = b;
+      }
+      bar($("auProg"), null);
+    } while (auQueued);
+    applyAudioMode();
+    paintAudio(origBuf ? (anyAudioFx() ? "✅ הקול המשופר מוכן. נגנו את הסרטון כדי לשמוע." : "") : null);
+  } catch(e) { console.warn(e); paintAudio("⚠️ שיפור הקול נכשל: " + e.message); }
+  auBusy = false;
+}
+// speech clarity: cut rumble + mud, lift presence, gentle compression
+async function voiceChain(mono, sr){
+  const OC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+  const oc = new OC(1, mono.length, sr), b = oc.createBuffer(1, mono.length, sr); b.copyToChannel(mono, 0);
+  const s = oc.createBufferSource(); s.buffer = b; let node = s;
+  const bq = (type, f, g, q) => { const x = oc.createBiquadFilter(); x.type = type; x.frequency.value = f; if (g != null) x.gain.value = g; if (q) x.Q.value = q; node.connect(x); node = x; };
+  bq("highpass", 80, null, 0.7);
+  if (AU.boost) { bq("peaking", 280, -3, 1); bq("peaking", 3200, 4, 0.9); bq("highshelf", 9000, 2); }
+  if (AU.level) { const c = oc.createDynamicsCompressor(); c.threshold.value = -26; c.knee.value = 10; c.ratio.value = 3.5; c.attack.value = 0.006; c.release.value = 0.22; node.connect(c); node = c; }
+  node.connect(oc.destination); s.start();
+  const r = await oc.startRendering();
+  return r.getChannelData(0).slice();
+}
+// bring speech to a steady loudness (≈ -18 dBFS RMS on voiced parts) with a soft limiter
+function normalize(x){
+  const fr = 1024; let sum = 0, cnt = 0;
+  for (let i = 0; i + fr <= x.length; i += fr) { let s = 0; for (let j = 0; j < fr; j++) s += x[i + j] * x[i + j]; s /= fr; if (s > 1e-5) { sum += s; cnt++; } }
+  if (!cnt) return;
+  const g = Math.min(8, 0.126 / Math.sqrt(sum / cnt));
+  for (let i = 0; i < x.length; i++) { let v = x[i] * g; if (v > 0.9) v = 0.9 + 0.1 * Math.tanh((v - 0.9) / 0.1); else if (v < -0.9) v = -0.9 - 0.1 * Math.tanh((-v - 0.9) / 0.1); x[i] = v; }
+}
+function mixMusic(L, R, sr){
+  const mL = musicBuf.getChannelData(0), mR = musicBuf.numberOfChannels > 1 ? musicBuf.getChannelData(1) : mL, mn = mL.length;
+  const vol = AU.mvol / 100 * 0.6, n = L.length, fade = sr * 1.2, blk = 512;
+  let duck = 1;
+  for (let i = 0; i < n; i += blk) {
+    let target = 1;
+    if (AU.duck) { let s = 0; const e = Math.min(n, i + blk); for (let j = i; j < e; j++) s += L[j] * L[j]; target = Math.sqrt(s / (e - i)) > 0.02 ? 0.3 : 1; }
+    for (let j = i; j < Math.min(n, i + blk); j++) {
+      duck += (target - duck) * (target < duck ? 0.002 : 0.0004);
+      const env = Math.min(1, j / fade, (n - j) / fade), k = j % mn, g = vol * duck * env;
+      L[j] += mL[k] * g; R[j] += mR[k] * g;
+    }
+  }
+}
+// ---- spectral noise gate (STFT): learn the noise from the quietest moments, then turn those frequencies down everywhere
+function fftInit(N){
+  const rev = new Uint32Array(N), lg = Math.log2(N);
+  for (let i = 0; i < N; i++) { let r = 0; for (let b = 0; b < lg; b++) r |= ((i >> b) & 1) << (lg - 1 - b); rev[i] = r; }
+  const cos = new Float64Array(N / 2), sin = new Float64Array(N / 2);
+  for (let i = 0; i < N / 2; i++) { cos[i] = Math.cos(2 * Math.PI * i / N); sin[i] = Math.sin(2 * Math.PI * i / N); }
+  return { N, rev, cos, sin };
+}
+function fft(F, re, im, inv){
+  const { N, rev, cos, sin } = F;
+  for (let i = 0; i < N; i++) { const j = rev[i]; if (j > i) { let t = re[i]; re[i] = re[j]; re[j] = t; t = im[i]; im[i] = im[j]; im[j] = t; } }
+  for (let size = 2; size <= N; size <<= 1) {
+    const half = size >> 1, step = N / size;
+    for (let i = 0; i < N; i += size) for (let j = 0, k = 0; j < half; j++, k += step) {
+      const c = cos[k], s = inv ? sin[k] : -sin[k], a = i + j, b = a + half;
+      const tr = re[b] * c - im[b] * s, ti = re[b] * s + im[b] * c;
+      re[b] = re[a] - tr; im[b] = im[a] - ti; re[a] += tr; im[a] += ti;
+    }
+  }
+  if (inv) for (let i = 0; i < N; i++) { re[i] /= N; im[i] /= N; }
+}
+async function spectralGate(x, sr, level, onProg){
+  const N = 1024, H = 256, B = N / 2 + 1, F = fftInit(N), win = new Float64Array(N);
+  for (let i = 0; i < N; i++) win[i] = 0.5 - 0.5 * Math.cos(2 * Math.PI * i / N);
+  const len = x.length, nF = Math.max(1, Math.ceil((len - N) / H) + 1);
+  const re = new Float64Array(N), im = new Float64Array(N);
+  const load = f => { const o = f * H; for (let i = 0; i < N; i++) { re[i] = (x[o + i] || 0) * win[i]; im[i] = 0; } fft(F, re, im, false); };
+  const en = new Float32Array(nF);
+  for (let f = 0; f < nF; f++) { let s = 0; const o = f * H; for (let i = 0; i < N; i += 4) { const v = x[o + i] || 0; s += v * v; } en[f] = s; }
+  const order = Array.from(en.keys()).sort((a, b) => en[a] - en[b]).slice(0, Math.max(6, Math.floor(nF * 0.1)));
+  const mean = new Float64Array(B), sq = new Float64Array(B);
+  for (const f of order) { load(f); for (let k = 0; k < B; k++) { const d = 20 * Math.log10(Math.hypot(re[k], im[k]) + 1e-9); mean[k] += d; sq[k] += d * d; } }
+  const thr = new Float64Array(B);
+  for (let k = 0; k < B; k++) { const m = mean[k] / order.length, sd = Math.sqrt(Math.max(0, sq[k] / order.length - m * m)); thr[k] = m + 1.5 * sd + 2; }
+  const floor = Math.pow(10, -[0, 10, 17, 25][level] / 20);
+  const out = new Float32Array(len), wsum = new Float32Array(len), m = new Float32Array(B), g = new Float32Array(B).fill(1);
+  for (let f = 0; f < nF; f++) {
+    load(f);
+    for (let k = 0; k < B; k++) { const d = 20 * Math.log10(Math.hypot(re[k], im[k]) + 1e-9); m[k] = 1 / (1 + Math.exp(-(d - thr[k]) / 2.5)); }
+    for (let k = 0; k < B; k++) {
+      const sm = (m[Math.max(0, k - 1)] + 2 * m[k] + m[Math.min(B - 1, k + 1)]) / 4;
+      g[k] = sm > g[k] ? sm : g[k] * 0.65 + sm * 0.35;   // fast open, slower close: no "musical noise"
+      const gain = floor + (1 - floor) * g[k];
+      re[k] *= gain; im[k] *= gain;
+      if (k > 0 && k < N / 2) { re[N - k] *= gain; im[N - k] *= gain; }
+    }
+    fft(F, re, im, true);
+    const o = f * H;
+    for (let i = 0; i < N && o + i < len; i++) { out[o + i] += re[i] * win[i]; wsum[o + i] += win[i] * win[i]; }
+    if (f % 300 === 0) { onProg && onProg(f / nF); await sleep(0); }
+  }
+  for (let i = 0; i < len; i++) out[i] = wsum[i] > 1e-3 ? out[i] / wsum[i] : 0;
+  onProg && onProg(1);
+  return out;
+}
+// ---- voice activity (for silence cutting): 20 ms frames above the noise floor
+function voiceActivity(mono, sr){
+  const fr = Math.round(sr * 0.02), n = Math.floor(mono.length / fr), db = new Float32Array(n);
+  for (let f = 0; f < n; f++) { let s = 0; for (let i = f * fr; i < (f + 1) * fr; i++) s += mono[i] * mono[i]; db[f] = 10 * Math.log10(s / fr + 1e-10); }
+  const sorted = Array.from(db).sort((a, b) => a - b), floorDb = sorted[Math.floor(n * 0.1)] || -80, peak = sorted[Math.floor(n * 0.98)] || 0;
+  const th = Math.max(floorDb + 9, Math.min(peak - 28, -50), floorDb + (peak - floorDb) * 0.25);
+  return { fr: 0.02, on: Array.from(db, d => d > th) };
+}
+function speechKeep(lvl){
+  if (!voiced) return null;
+  const minSil = { soft: 0.9, mid: 0.5, hard: 0.3 }[lvl], pad = { soft: 0.2, mid: 0.13, hard: 0.08 }[lvl];
+  const segs = []; let s = -1;
+  voiced.on.forEach((v, i) => { const t = i * voiced.fr; if (v && s < 0) s = t; if (!v && s >= 0) { segs.push({ s, e: t }); s = -1; } });
+  if (s >= 0) segs.push({ s, e: voiced.on.length * voiced.fr });
+  const out = [];
+  for (const g of segs) {
+    if (g.e - g.s < 0.06) continue;
+    const a = Math.max(0, g.s - pad), b = g.e + pad;
+    if (out.length && a - out[out.length - 1].e < minSil) out[out.length - 1].e = b; else out.push({ s: a, e: b });
+  }
+  return out;
+}
+function calcKeep(){
+  const D = duration || 0, a = ED.trimS, b = ED.trimE > 0 ? ED.trimE : D;
+  let segs = [{ s: a, e: b }];
+  if (ED.cut) { const sk = speechKeep(ED.cutLvl); if (sk) segs = sk.map(g => ({ s: Math.max(a, g.s), e: Math.min(b, g.e) })).filter(g => g.e - g.s > 0.08); }
+  keep = segs.length ? segs : [{ s: a, e: b }];
+}
+const keptLen = () => keep ? keep.reduce((s, g) => s + g.e - g.s, 0) : duration;
+
+// playback engine: with enhancements → play mixBuf through Web Audio and mute the video element
+function applyAudioMode(){
+  const v = $("player");
+  const useBuf = !!mixBuf && !abHold;
+  v.muted = useBuf;
+  if (!v.paused && useBuf) playBuf(v.currentTime); else stopBuf();
+}
+function playBuf(at){
+  stopBuf(); if (!mixBuf) return;
+  const ctx = getAC(); ctx.resume().catch(() => {});
+  bufSrc = ctx.createBufferSource(); bufSrc.buffer = mixBuf;
+  bufSrc.connect(outGain); if (adest) bufSrc.connect(adest);
+  const off = clamp(at, 0, mixBuf.duration - 0.01);
+  bufSrc.start(0, off); bufSrc._t0 = ctx.currentTime - off;
+}
+function stopBuf(){ if (bufSrc) { try { bufSrc.stop(); } catch(e){} try { bufSrc.disconnect(); } catch(e){} bufSrc = null; } }
+const v_ = () => $("player");
+$("player").addEventListener("play", () => { $("playBtn").textContent = "⏸"; $("playOv").hidden = true; if (mixBuf && !abHold) playBuf(v_().currentTime); });
+$("player").addEventListener("pause", () => { $("playBtn").textContent = "▶"; $("playOv").hidden = false; stopBuf(); });
+$("player").addEventListener("seeking", stopBuf);
+$("player").addEventListener("seeked", () => { if (!v_().paused && mixBuf && !abHold) playBuf(v_().currentTime); });
+
+function togglePlay(){
+  const v = $("player"); ensureElSrc();
+  if (v.paused) {
+    const k = keep && keep.length ? keep : [{ s: 0, e: duration }], last = k[k.length - 1];
+    if (v.ended || v.currentTime >= last.e - 0.05 || v.currentTime < k[0].s) v.currentTime = k[0].s;
+    v.play().catch(() => {});
+  } else v.pause();
+}
 $("playBtn").onclick = togglePlay;
-$("player").addEventListener("play", () => { $("playBtn").textContent = "⏸"; $("playOv").hidden = true; });
-$("player").addEventListener("pause", () => { $("playBtn").textContent = "▶"; $("playOv").hidden = false; });
 $("scrub").addEventListener("input", () => { const v = $("player"); v.currentTime = $("scrub").value / 1000 * (duration || 0); });
 $("editBack").onclick = () => { $("player").pause(); show("home"); };
 
+// audio panel
+const paintDn = segInit("segDn", () => AU.dn, v => { AU.dn = +v; saveAU(); queueMix(); });
+$("optLevel").onchange = () => { AU.level = $("optLevel").checked; saveAU(); queueMix(); };
+$("optBoost").onchange = () => { AU.boost = $("optBoost").checked; saveAU(); queueMix(); };
+$("auAuto").onclick = () => { AU.dn = 2; AU.level = true; AU.boost = true; saveAU(); paintAudio(); queueMix(); toast("מפעיל הסרת רעשים, איזון עוצמה וחיזוק קול…"); };
+function holdBtn(el, on, off){
+  el.addEventListener("pointerdown", e => { e.preventDefault(); on(); });
+  for (const ev of ["pointerup", "pointerleave", "pointercancel"]) el.addEventListener(ev, off);
+  el.addEventListener("contextmenu", e => e.preventDefault());
+}
+holdBtn($("auHold"), () => { abHold = true; applyAudioMode(); }, () => { if (abHold) { abHold = false; applyAudioMode(); } });
+$("musicBtn").onclick = () => $("musicInput").click();
+$("musicInput").onchange = async () => {
+  const f = $("musicInput").files[0]; if (!f) return; $("musicInput").value = "";
+  $("musicName").textContent = "טוען את השיר…";
+  try {
+    const ab = await f.arrayBuffer(), ctx = getAC();
+    musicBuf = await new Promise((res, rej) => { const p = ctx.decodeAudioData(ab, res, rej); if (p && p.then) p.then(res, rej); });
+    $("musicName").textContent = "🎵 " + f.name;
+    paintAudio(); queueMix();
+  } catch(e) { $("musicName").textContent = "לא הצלחתי לקרוא את הקובץ. נסו MP3 או M4A."; }
+};
+$("musicDel").onclick = () => { musicBuf = null; $("musicName").textContent = "המוזיקה הוסרה."; paintAudio(); queueMix(); };
+$("musicVol").oninput = () => { AU.mvol = +$("musicVol").value; $("musicVolV").textContent = AU.mvol + "%"; saveAU(); queueMix(); };
+$("optDuck").onchange = () => { AU.duck = $("optDuck").checked; saveAU(); queueMix(); };
+
+// ================= PICTURE (WebGL) =================
+const FX0 = { br: 0, co: 0, sa: 0, wa: 0, sh: 0, sm: 0, vi: 0 };
+let FX = Object.assign({}, FX0, LS.get("st2_fx", {}));
+const saveFX = () => LS.set("st2_fx", FX);
+const FXS = [
+  ["br", "בהירות", -0.3, 0.3], ["co", "ניגודיות", -0.5, 0.5], ["sa", "צבעוניות", -1, 1], ["wa", "חום", -1, 1],
+  ["sh", "חדות", 0, 1], ["sm", "החלקת עור", 0, 1], ["vi", "הצללת שוליים", 0, 1]
+];
+const FXP = [
+  { n: "מקורי", v: {} }, { n: "✨ יופי", v: { sm: 0.55, br: 0.04, sa: 0.08, sh: 0.15 } }, { n: "☀️ בהיר", v: { br: 0.08, co: 0.08, sa: 0.12 } },
+  { n: "🔥 חם", v: { wa: 0.55, sa: 0.12, co: 0.05 } }, { n: "❄️ קר", v: { wa: -0.5, co: 0.06 } }, { n: "🎬 קולנועי", v: { co: 0.18, sa: -0.18, wa: 0.2, vi: 0.45 } },
+  { n: "🌈 חי", v: { sa: 0.4, co: 0.12, sh: 0.2 } }, { n: "🔍 חד", v: { sh: 0.6, co: 0.06 } }, { n: "⚫ שחור-לבן", v: { sa: -1, co: 0.2 } }
+];
+let fxBypass = false, vDirty = true;
+const fxActive = () => !fxBypass && Object.keys(FX0).some(k => Math.abs(FX[k]) > 0.005);
+let gl = null, glc = null, glFail = false, glU = {};
+function initGL(){
+  if (gl || glFail) return !!gl;
+  try {
+    glc = document.createElement("canvas");
+    gl = glc.getContext("webgl", { preserveDrawingBuffer: true, premultipliedAlpha: false, antialias: false });
+    if (!gl) throw new Error("no webgl");
+    const vs = "attribute vec2 p;varying vec2 uv;void main(){uv=p*.5+.5;gl_Position=vec4(p,0.,1.);}";
+    const fs = `precision mediump float;uniform sampler2D u;uniform vec2 px;uniform float br,co,sa,wa,sh,sm,vi;varying vec2 uv;
+      vec3 tx(vec2 o){return texture2D(u,uv+o*px).rgb;}
+      void main(){
+        vec3 c0=tx(vec2(0.)),c=c0;
+        if(sm>0.){vec3 acc=c0;float ws=1.;
+          for(int i=-2;i<=2;i++)for(int j=-2;j<=2;j++){if(i==0&&j==0)continue;
+            vec2 o=vec2(float(i),float(j))*1.6;vec3 s=tx(o);vec3 d=s-c0;
+            float w=exp(-dot(d,d)*55.)*exp(-dot(o,o)/9.);acc+=s*w;ws+=w;}
+          c=mix(c0,acc/ws,sm);}
+        if(sh>0.){vec3 b=(tx(vec2(1.,0.))+tx(vec2(-1.,0.))+tx(vec2(0.,1.))+tx(vec2(0.,-1.)))*.25;c+=(c0-b)*sh*1.8;}
+        c+=br;c=(c-.5)*(1.+co)+.5;
+        float l=dot(c,vec3(.299,.587,.114));c=mix(vec3(l),c,1.+sa);
+        c.r+=wa*.07;c.g+=wa*.015;c.b-=wa*.07;
+        if(vi>0.){float d=distance(uv,vec2(.5));c*=1.-vi*.75*smoothstep(.3,.85,d);}
+        gl_FragColor=vec4(clamp(c,0.,1.),1.);}`;
+    const sh = (t, src) => { const s = gl.createShader(t); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; };
+    const pr = gl.createProgram(); gl.attachShader(pr, sh(gl.VERTEX_SHADER, vs)); gl.attachShader(pr, sh(gl.FRAGMENT_SHADER, fs)); gl.linkProgram(pr);
+    if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) throw new Error("link");
+    gl.useProgram(pr);
+    const bf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, bf);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+    const loc = gl.getAttribLocation(pr, "p"); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+    const tex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, tex);
+    for (const [k, v] of [[gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE], [gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+    for (const n of ["px", "br", "co", "sa", "wa", "sh", "sm", "vi"]) glU[n] = gl.getUniformLocation(pr, n);
+  } catch(e) { console.warn("webgl", e); gl = null; glFail = true; }
+  return !!gl;
+}
+function fxRender(v, maxSide){
+  if (!initGL()) return null;
+  const vw = v.videoWidth, vh = v.videoHeight, k = Math.min(1, maxSide / Math.max(vw, vh));
+  const w = Math.max(2, Math.round(vw * k)), h = Math.max(2, Math.round(vh * k));
+  if (glc.width !== w || glc.height !== h) { glc.width = w; glc.height = h; }
+  gl.viewport(0, 0, w, h);
+  try { gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, v); } catch(e) { return null; }
+  gl.uniform2f(glU.px, 1 / w, 1 / h);
+  for (const n of Object.keys(FX0)) gl.uniform1f(glU[n], FX[n]);
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  return glc;
+}
+function drawVideo(ctx, v, W, H, t, maxSide){
+  ctx.fillStyle = "#000"; ctx.fillRect(0, 0, W, H);
+  const vw = v.videoWidth, vh = v.videoHeight; if (!vw || v.readyState < 2) return;
+  // simple colour tweaks use the browser's fast canvas filter; smoothing/sharpening need the WebGL shader
+  const fast = fxActive() && CANVAS_FILTER && FX.sm < 0.01 && FX.sh < 0.01 && FX.wa >= 0;
+  const src = (fxActive() && !fast && fxRender(v, maxSide)) || v;
+  if (fast) ctx.filter = `brightness(${(1 + FX.br * 1.3).toFixed(3)}) contrast(${(1 + FX.co).toFixed(3)}) saturate(${(1 + FX.sa).toFixed(3)}) sepia(${(FX.wa * 0.3).toFixed(3)})`;
+  let z = 1; if (ED.zoom) { const c = capAt(t); if (c && caps.indexOf(c) % 2 === 1) z = 1.13; }
+  const di = s => ctx.drawImage(src, (W - vw * s) / 2, (H - vh * s) / 2 - (z > 1 ? vh * s * 0.03 : 0), vw * s, vh * s);
+  const cover = Math.max(W / vw, H / vh) * z, fit = Math.min(W / vw, H / vh) * z;
+  if (S.fit === "contain" && Math.abs(vw / vh - W / H) > 0.03) { ctx.globalAlpha = 0.3; di(cover); ctx.globalAlpha = 1; di(fit); }
+  else di(cover);
+  ctx.filter = "none";
+  if (fast && FX.vi > 0.01) {
+    const g = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.3, W / 2, H / 2, Math.hypot(W, H) / 2);
+    g.addColorStop(0, "rgba(0,0,0,0)"); g.addColorStop(1, `rgba(0,0,0,${(FX.vi * 0.7).toFixed(3)})`);
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  }
+}
+const CANVAS_FILTER = (() => { try { const c = document.createElement("canvas").getContext("2d"); c.filter = "blur(1px)"; return c.filter === "blur(1px)"; } catch(e) { return false; } })();
+function paintFx(){
+  const pb = $("fxPresets"); pb.textContent = "";
+  for (const P of FXP) {
+    const b = document.createElement("button"); b.className = "chip"; b.textContent = P.n;
+    const on = Object.keys(FX0).every(k => Math.abs((P.v[k] || 0) - FX[k]) < 0.01); b.classList.toggle("on", on);
+    b.onclick = () => { FX = Object.assign({}, FX0, P.v); saveFX(); paintFx(); vDirty = true; };
+    pb.appendChild(b);
+  }
+  const box = $("fxSliders"); box.textContent = "";
+  for (const [k, n, a, z] of FXS) {
+    const row = document.createElement("div"); row.className = "sl";
+    const l = document.createElement("span"); l.textContent = n;
+    const r = document.createElement("input"); r.type = "range"; r.min = a; r.max = z; r.step = 0.01; r.value = FX[k]; r.setAttribute("aria-label", n);
+    const val = document.createElement("b"); val.textContent = Math.round(FX[k] * 100);
+    r.oninput = () => { FX[k] = +r.value; val.textContent = Math.round(FX[k] * 100); saveFX(); vDirty = true; for (const c of pb.children) c.classList.remove("on"); };
+    r.ondblclick = () => { FX[k] = 0; r.value = 0; r.oninput(); };
+    row.append(l, r, val); box.appendChild(row);
+  }
+  if (glFail) $("fxNote").textContent = "⚠️ הדפדפן הזה לא תומך בשיפורי תמונה (WebGL).";
+}
+$("fxReset").onclick = () => { FX = Object.assign({}, FX0); saveFX(); paintFx(); vDirty = true; };
+holdBtn($("fxHold"), () => { fxBypass = true; vDirty = true; }, () => { fxBypass = false; vDirty = true; });
+
+// ================= EDIT LOOP / PREVIEW =================
 function startEditLoop(){ if (editLoopOn) return; editLoopOn = true; requestAnimationFrame(editLoop); }
+let lastHi = -2, lastVT = -1;
 function editLoop(){
   if ($("edit").hidden) { editLoopOn = false; return; }
   const v = $("player"), t = v.currentTime || 0;
-  drawPreview(t);
+  // skip cut parts while playing
+  if (!v.paused && keep && keep.length && !exporting) {
+    const g = keep.find(g => t >= g.s - 0.02 && t < g.e);
+    if (!g) { const nx = keep.find(g => g.s > t); if (nx) v.currentTime = nx.s; else { v.pause(); v.currentTime = keep[keep.length - 1].e - 0.05; } }
+  }
+  // keep enhanced audio in sync
+  if (bufSrc && !v.paused && !v.seeking) { const at = ac.currentTime - bufSrc._t0; if (Math.abs(at - t) > 0.15) playBuf(t); }
+  if (!exporting) drawPreview(t);
   if (document.activeElement !== $("scrub") && duration) $("scrub").value = t / duration * 1000;
   $("tCur").textContent = fmt(t);
   $("ph").style.left = (duration ? t / duration * 100 : 0) + "%";
@@ -715,9 +1179,38 @@ function editLoop(){
   if (ci !== lastHi) { lastHi = ci; for (const r of $("capList").children) r.classList.toggle("cur", +r.dataset.i === ci); }
   requestAnimationFrame(editLoop);
 }
-let lastHi = -2;
+let guide = false;
+function sizeCanvas(cv){
+  const r = cv.getBoundingClientRect(), dpr = Math.min(2, window.devicePixelRatio || 1);
+  const w = Math.round(r.width * dpr), h = Math.round(r.height * dpr);
+  if (w && (cv.width !== w || cv.height !== h)) { cv.width = w; cv.height = h; vDirty = true; }
+  return [w, h];
+}
+function drawPreview(t){
+  const [vw, vh] = sizeCanvas($("vcv"));
+  if (!vw) return;
+  const v = $("player");
+  if (vDirty || t !== lastVT || !v.paused) {
+    const c = $("vcv").getContext("2d", { alpha: false });
+    c.setTransform(vw / FMT.W, 0, 0, vh / FMT.H, 0, 0);
+    drawVideo(c, v, FMT.W, FMT.H, t, 960);
+    lastVT = t; vDirty = false;
+  }
+  const [w, h] = sizeCanvas($("ov"));
+  const ctx = $("ov").getContext("2d");
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, w, h);
+  ctx.setTransform(w / FMT.W, 0, 0, h / FMT.H, 0, 0);
+  drawOverlay(ctx, t, FMT.W, FMT.H);
+  if (cDrag && cDrag.moved && capBox) {
+    ctx.setLineDash([14, 10]); ctx.lineWidth = 4; ctx.strokeStyle = "rgba(255,255,255,.8)"; ctx.strokeRect(capBox.x, capBox.y, capBox.w, capBox.h); ctx.setLineDash([]);
+    if (guide) { ctx.strokeStyle = "#25e0f0"; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(FMT.W / 2, 0); ctx.lineTo(FMT.W / 2, FMT.H); ctx.stroke(); }
+  }
+  const b = [];
+  if (fxActive()) b.push("✨ תמונה"); if (mixBuf && !abHold) b.push("🎙️ קול"); if (ED.cut || ED.trimS || ED.trimE) b.push("✂️ " + fmt(keptLen()));
+  const bt = b.join(" · "); if ($("badge").textContent !== bt) { $("badge").textContent = bt; $("badge").hidden = !bt; }
+}
 
-// ---- caption drawing (same code for the preview and the exported video), 1080×1920 coordinates
+// ---- caption drawing (same code for preview and export)
 const capAt = t => caps.find(c => t >= c.start && t < c.end);
 let capBox = null;
 function rr(ctx, x, y, w, h, r){ ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(x, y, w, h, r); else ctx.rect(x, y, w, h); }
@@ -727,16 +1220,14 @@ function drawWord(ctx, text, x, y, fs, color){
   if (ST.box === "outline") { ctx.lineJoin = "round"; ctx.miterLimit = 2; ctx.lineWidth = fs * 0.17; ctx.strokeStyle = dark ? "#fff" : "#000"; ctx.strokeText(text, x, y); }
   if (ST.box === "shadow") { ctx.shadowColor = "rgba(0,0,0,.85)"; ctx.shadowBlur = fs * 0.22; ctx.shadowOffsetY = fs * 0.06; }
   if (ST.box === "neon") { ctx.shadowColor = color; ctx.shadowBlur = fs * 0.5; ctx.fillStyle = color; ctx.fillText(text, x, y); ctx.shadowBlur = fs * 0.18; }
-  ctx.fillStyle = ST.box === "neon" ? "#ffffff" : color;
-  if (ST.box === "neon") { ctx.globalAlpha *= 0.9; ctx.fillStyle = color; }
-  ctx.fillText(text, x, y);
+  ctx.fillStyle = color; ctx.fillText(text, x, y);
   ctx.shadowColor = "transparent"; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
 }
+function drawOverlay(ctx, t, W, H){ drawCaption(ctx, t, W, H); drawWatermark(ctx, W, H); }
 function drawCaption(ctx, t, W, H){
   capBox = null;
   const c = capAt(t); if (!c) return;
-  const F = FONTS[ST.font] || FONTS[0], groups = [];
-  const lines = [];
+  const F = FONTS[ST.font] || FONTS[0], groups = [], lines = [];
   if (ST.lang !== "en" && c.he.trim()) lines.push({ text: c.he, rtl: true, main: true });
   if (ST.lang !== "he" && (c.en || "").trim()) lines.push({ text: c.en, rtl: false, main: ST.lang === "en" });
   if (!lines.length) return;
@@ -751,18 +1242,22 @@ function drawCaption(ctx, t, W, H){
     if (cur.length) rows.push({ ws: cur, w: cw });
     groups.push({ ln, fs, rows, sp, k: -1 });
   }
-  if (ST.karaoke) { // which word is being said now (by letter count)
+  if (ST.karaoke) {
     const g = groups.find(g => g.ln.main) || groups[0], all = g.rows.flatMap(r => r.ws);
-    const lens = all.map(w => w.t.length + 2), tot = lens.reduce((a, b) => a + b, 0);
-    const p = (t - c.start) / Math.max(0.3, c.end - c.start) * tot; let acc = 0; g.k = all.length - 1;
-    for (let i = 0; i < all.length; i++) { acc += lens[i]; if (p < acc) { g.k = i; break; } }
+    if (c.wt && c.wt.length === all.length && g.ln.rtl) { g.k = 0; for (let i = 0; i < all.length; i++) if (t >= c.wt[i]) g.k = i; } // real word timings from AI
+    else {
+      const lens = all.map(w => w.t.length + 2), tot = lens.reduce((a, b) => a + b, 0);
+      const p = (t - c.start) / Math.max(0.3, c.end - c.start) * tot; let acc = 0; g.k = all.length - 1;
+      for (let i = 0; i < all.length; i++) { acc += lens[i]; if (p < acc) { g.k = i; break; } }
+    }
   }
   const LH = 1.3, gap = ST.size * 0.2;
   const total = groups.reduce((s, g) => s + g.rows.length * g.fs * LH, 0) + (groups.length - 1) * gap;
   const maxW = Math.max(...groups.flatMap(g => g.rows.map(r => r.w)));
   let sc = 1, al = 1;
   if (ST.anim) { const a = clamp((t - c.start) / 0.22, 0, 1); sc = 0.7 + 0.3 * easeOutBack(a); al = clamp(a * 2, 0, 1); }
-  const half = (maxW / 2 + ST.size * 0.4) * sc, cx = clamp(ST.x * W, Math.min(W / 2, half + 16), Math.max(W / 2, W - half - 16)), cy = clamp(ST.y * H, total / 2 + 40, H - total / 2 - 40);
+  const half = (maxW / 2 + ST.size * 0.4) * sc;
+  const cx = clamp(ST.x * W, Math.min(W / 2, half + 16), Math.max(W / 2, W - half - 16)), cy = clamp(ST.y * H, total / 2 + 40, H - total / 2 - 40);
   ctx.save(); ctx.translate(cx, cy); ctx.scale(sc, sc); ctx.globalAlpha = al;
   ctx.textBaseline = "middle"; ctx.textAlign = "left";
   let y = -total / 2;
@@ -789,23 +1284,51 @@ function drawCaption(ctx, t, W, H){
   ctx.restore();
   capBox = { x: cx - (maxW / 2 + 50) * sc, y: cy - (total / 2 + 40) * sc, w: (maxW + 100) * sc, h: (total + 80) * sc, c };
 }
-let guide = false;
-function drawPreview(t){
-  const cv = $("ov"), r = cv.getBoundingClientRect(), dpr = Math.min(2, window.devicePixelRatio || 1);
-  const w = Math.round(r.width * dpr), h = Math.round(r.height * dpr);
-  if (!w) return;
-  if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
-  const ctx = cv.getContext("2d");
-  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, w, h);
-  ctx.setTransform(w / FMT.W, 0, 0, h / FMT.H, 0, 0);
-  drawCaption(ctx, t, FMT.W, FMT.H);
-  if (cDrag && cDrag.moved && capBox) {
-    ctx.setLineDash([14, 10]); ctx.lineWidth = 4; ctx.strokeStyle = "rgba(255,255,255,.8)"; ctx.strokeRect(capBox.x, capBox.y, capBox.w, capBox.h); ctx.setLineDash([]);
-    if (guide) { ctx.strokeStyle = "#25e0f0"; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(FMT.W / 2, 0); ctx.lineTo(FMT.W / 2, FMT.H); ctx.stroke(); }
+// ---- watermark (text and/or logo image)
+const WM = Object.assign({ text: "", pos: "tr", size: 100, img: "" }, LS.get("st2_wm", {}));
+const saveWM = () => LS.set("st2_wm", WM);
+let wmImg = null;
+function loadWmImg(){ wmImg = null; if (WM.img) { const i = new Image(); i.onload = () => { wmImg = i; }; i.src = WM.img; } }
+loadWmImg();
+function drawWatermark(ctx, W, H){
+  if (!WM.text.trim() && !wmImg) return;
+  const base = Math.min(W, H), k = WM.size / 100, m = base * 0.045;
+  const right = WM.pos[1] === "r", top = WM.pos[0] === "t";
+  let y = top ? m + (W < H ? H * 0.04 : 0) : H - m - (W < H ? H * 0.12 : 0);   // keep clear of TikTok's own buttons
+  ctx.save(); ctx.globalAlpha = 0.9;
+  if (wmImg) {
+    const iw = base * 0.16 * k, ih = iw * wmImg.height / wmImg.width;
+    const x = right ? W - m - iw : m;
+    ctx.drawImage(wmImg, x, top ? y : y - ih, iw, ih);
+    y = top ? y + ih + base * 0.012 : y - ih - base * 0.012;
   }
+  if (WM.text.trim()) {
+    const fs = base * 0.04 * k;
+    ctx.font = `700 ${fs}px Rubik, Arial, sans-serif`; ctx.direction = /[֐-׿]/.test(WM.text) ? "rtl" : "ltr";
+    ctx.textAlign = right ? "right" : "left"; ctx.textBaseline = top ? "top" : "bottom";
+    ctx.shadowColor = "rgba(0,0,0,.7)"; ctx.shadowBlur = fs * 0.3;
+    ctx.fillStyle = "#fff"; ctx.fillText(WM.text.trim(), right ? W - m : m, y);
+  }
+  ctx.restore();
 }
+$("wmText").value = WM.text;
+$("wmText").oninput = () => { WM.text = $("wmText").value; saveWM(); };
+segInit("segWm", () => WM.pos, v => { WM.pos = v; saveWM(); });
+$("wmSize").value = WM.size; $("wmSizeV").textContent = WM.size + "%";
+$("wmSize").oninput = () => { WM.size = +$("wmSize").value; $("wmSizeV").textContent = WM.size + "%"; saveWM(); };
+$("wmImgBtn").onclick = () => $("wmImgInput").click();
+$("wmImgDel").hidden = !WM.img;
+$("wmImgDel").onclick = () => { WM.img = ""; saveWM(); loadWmImg(); $("wmImgDel").hidden = true; };
+$("wmImgInput").onchange = () => {
+  const f = $("wmImgInput").files[0]; if (!f) return; $("wmImgInput").value = "";
+  const url = URL.createObjectURL(f), i = new Image();
+  i.onload = () => { const k = Math.min(1, 400 / Math.max(i.width, i.height)), c = document.createElement("canvas"); c.width = Math.round(i.width * k); c.height = Math.round(i.height * k);
+    c.getContext("2d").drawImage(i, 0, 0, c.width, c.height); WM.img = c.toDataURL("image/png"); saveWM(); loadWmImg(); $("wmImgDel").hidden = false; URL.revokeObjectURL(url); };
+  i.onerror = () => toast("לא הצלחתי לקרוא את התמונה");
+  i.src = url;
+};
 
-// ---- drag the caption on the video / tap it to edit / tap elsewhere to play
+// ---- drag the caption / tap it to edit / tap elsewhere to play
 let cDrag = null;
 function toLogical(e){ const r = $("ov").getBoundingClientRect(); return { x: (e.clientX - r.left) / r.width * FMT.W, y: (e.clientY - r.top) / r.height * FMT.H }; }
 $("ov").addEventListener("pointerdown", e => {
@@ -834,13 +1357,16 @@ $("ov").addEventListener("pointercancel", () => { cDrag = null; });
 
 // ---- timeline
 function renderTimeline(){
-  const box = $("tlCaps"); box.textContent = "";
+  const box = $("tlCaps"), cuts = $("tlCuts"); box.textContent = ""; cuts.textContent = "";
   if (!duration) return;
   caps.forEach((c, i) => {
     const b = document.createElement("div"); b.className = "b" + (i === sel ? " sel" : "");
     b.style.left = (c.start / duration * 100) + "%"; b.style.width = Math.max(0.5, (c.end - c.start) / duration * 100) + "%";
     b.textContent = c.he; box.appendChild(b);
   });
+  if (keep) { let prev = 0; for (const g of keep.concat([{ s: duration, e: duration }])) {
+    if (g.s - prev > 0.05) { const d = document.createElement("div"); d.className = "cut"; d.style.left = prev / duration * 100 + "%"; d.style.width = (g.s - prev) / duration * 100 + "%"; cuts.appendChild(d); }
+    prev = Math.max(prev, g.e); } }
 }
 let tlDrag = false;
 function tlSeek(e){ const r = $("tl").getBoundingClientRect(); $("player").currentTime = clamp((e.clientX - r.left) / r.width, 0, 1) * duration; }
@@ -869,17 +1395,13 @@ function renderCaps(){
   renderTimeline();
 }
 $("addCap").onclick = () => {
-  const t = $("player").currentTime || 0;
-  const cur = capAt(t);
-  if (cur) { // split the current one's time
-    const nc = { start: t, end: cur.end, he: "טקסט חדש", en: "" }; cur.end = t; caps.push(nc);
-  } else {
-    const next = caps.find(c => c.start > t);
-    caps.push({ start: t, end: Math.min(next ? next.start : duration, t + 2) || t + 2, he: "טקסט חדש", en: "" });
-  }
-  edited = true; renderCaps(); openCapSheet(caps.findIndex(c => c.start === t && c.he === "טקסט חדש"));
+  const t = $("player").currentTime || 0, cur = capAt(t);
+  let nc;
+  if (cur) { nc = { start: t, end: cur.end, he: "טקסט חדש", en: "" }; cur.end = t; cur.wt = null; }
+  else { const next = caps.find(c => c.start > t); nc = { start: t, end: Math.min(next ? next.start : duration, t + 2) || t + 2, he: "טקסט חדש", en: "" }; }
+  caps.push(nc); edited = true; renderCaps(); openCapSheet(caps.indexOf(nc));
 };
-function shiftAll(d){ for (const c of caps) { c.start = Math.max(0, c.start + d); c.end = Math.max(c.start + 0.2, c.end + d); } edited = true; renderCaps(); toast(d < 0 ? "כל הכתוביות הוקדמו ב-0.2 שניות" : "כל הכתוביות אוחרו ב-0.2 שניות"); }
+function shiftAll(d){ for (const c of caps) { c.start = Math.max(0, c.start + d); c.end = Math.max(c.start + 0.2, c.end + d); if (c.wt) c.wt = c.wt.map(x => x + d); } edited = true; renderCaps(); toast(d < 0 ? "כל הכתוביות הוקדמו ב-0.2 שניות" : "כל הכתוביות אוחרו ב-0.2 שניות"); }
 $("shiftE").onclick = () => shiftAll(-0.2); $("shiftL").onclick = () => shiftAll(0.2);
 
 // ---- caption editor sheet
@@ -895,7 +1417,7 @@ function openCapSheet(i){
 function paintCsTimes(){ const c = caps[sel]; if (!c) return; $("csS").textContent = fmtP(c.start); $("csE").textContent = fmtP(c.end); }
 function closeCapSheet(){ $("capSheet").hidden = true; sel = -1; renderCaps(); }
 $("csDone").onclick = closeCapSheet;
-$("csHe").addEventListener("input", () => { if (caps[sel]) { caps[sel].he = $("csHe").value; edited = true; } });
+$("csHe").addEventListener("input", () => { if (caps[sel]) { caps[sel].he = $("csHe").value; caps[sel].wt = null; edited = true; } });
 $("csEn").addEventListener("input", () => { if (caps[sel]) { caps[sel].en = $("csEn").value; edited = true; } });
 document.querySelectorAll(".tedit button").forEach(b => b.onclick = () => {
   const c = caps[sel]; if (!c) return; const a = b.dataset.a, t = $("player").currentTime;
@@ -905,7 +1427,7 @@ document.querySelectorAll(".tedit button").forEach(b => b.onclick = () => {
   if (a === "e-1") c.end = Math.max(c.start + 0.2, c.end - 0.1);
   if (a === "e+1") c.end = Math.min(duration || 1e9, c.end + 0.1);
   if (a === "eNow") c.end = Math.max(c.start + 0.2, t);
-  edited = true; paintCsTimes(); renderTimeline();
+  c.wt = null; edited = true; paintCsTimes(); renderTimeline();
   $("player").currentTime = a[0] === "s" ? c.start + 0.01 : Math.max(c.start, c.end - 0.4);
 });
 $("csPrev").onclick = () => { renderCaps(); openCapSheet(sel - 1); };
@@ -917,16 +1439,19 @@ $("csDel").onclick = () => {
 };
 $("csMerge").onclick = () => {
   const c = caps[sel], n = caps[sel + 1]; if (!c || !n) return toast("אין כתובית אחריה");
-  c.he = (c.he + " " + n.he).trim(); c.en = ((c.en || "") + " " + (n.en || "")).trim(); c.end = n.end; caps.splice(sel + 1, 1);
+  c.he = (c.he + " " + n.he).trim(); c.en = ((c.en || "") + " " + (n.en || "")).trim(); c.end = n.end;
+  c.wt = c.wt && n.wt ? c.wt.concat(n.wt) : null; caps.splice(sel + 1, 1);
   edited = true; renderCaps(); openCapSheet(caps.indexOf(c));
 };
 $("csSplit").onclick = () => {
   const c = caps[sel], t = $("player").currentTime;
   if (!c) return;
   if (!(t > c.start + 0.15 && t < c.end - 0.15)) return toast("הזיזו את הסרטון לנקודה שבתוך הכתובית, ואז לחצו פצל");
-  const ws = words(c.he), k = clamp(Math.round(ws.length * (t - c.start) / (c.end - c.start)), 1, Math.max(1, ws.length - 1));
-  const nc = { start: t, end: c.end, he: ws.slice(k).join(" ") || "טקסט חדש", en: "" };
-  c.he = ws.slice(0, k).join(" "); c.end = t; caps.push(nc);
+  const ws = words(c.he);
+  let k = clamp(Math.round(ws.length * (t - c.start) / (c.end - c.start)), 1, Math.max(1, ws.length - 1));
+  if (c.wt && c.wt.length === ws.length) k = clamp(c.wt.filter(x => x < t).length, 1, Math.max(1, ws.length - 1));
+  const nc = { start: t, end: c.end, he: ws.slice(k).join(" ") || "טקסט חדש", en: "", wt: c.wt ? c.wt.slice(k) : null };
+  c.he = ws.slice(0, k).join(" "); c.end = t; c.wt = c.wt ? c.wt.slice(0, k) : null; caps.push(nc);
   edited = true; renderCaps(); openCapSheet(caps.indexOf(c)); toast("פוצל לשתי כתוביות");
 };
 $("csTr").onclick = async () => { const c = caps[sel]; if (!c) return; $("csTr").disabled = true; const t = await translate(c.he); $("csTr").disabled = false; if (t) { c.en = t; $("csEn").value = t; edited = true; } else toast("התרגום נכשל. אפשר לכתוב ידנית."); };
@@ -934,18 +1459,20 @@ $("csTr").onclick = async () => { const c = caps[sel]; if (!c) return; $("csTr")
 // ---- tabs
 function setTab(t){
   for (const b of $("tabs").querySelectorAll("button")) b.classList.toggle("on", b.dataset.tab === t);
-  for (const p of ["caps", "style", "lang", "save"]) $("p-" + p).hidden = p !== t;
+  for (const p of ["caps", "style", "fx", "audio", "cut", "save"]) $("p-" + p).hidden = p !== t;
+  if (t === "save") paintSaveSum();
+  if (t === "cut") paintCut();
 }
 $("tabs").addEventListener("click", e => { const b = e.target.closest("button"); if (b) setTab(b.dataset.tab); });
 $("exportTop").onclick = () => setTab("save");
 
-// ---- style panel
+// ---- caption style panel
 function swatches(id, key){
   const box = $(id); box.textContent = "";
   for (const c of COLORS) { const b = document.createElement("button"); b.style.background = c; b.setAttribute("aria-label", "צבע " + c);
     b.classList.toggle("on", ST[key] === c); b.onclick = () => { ST[key] = c; saveST(); paintStyleUI(); }; box.appendChild(b); }
 }
-let paintBox, paintPos, paintLang, paintFit2;
+let paintBox, paintPos, paintLang, paintFit2, paintFmt;
 function paintStyleUI(){
   const pb = $("presets"); pb.textContent = "";
   PRESETS.forEach(P => {
@@ -955,8 +1482,7 @@ function paintStyleUI(){
     if (P.s.box === "neon") b.style.textShadow = `0 0 10px ${P.s.color}`;
     if (P.s.box === "pill") b.innerHTML = `<span style="background:${P.s.hl};padding:2px 8px;border-radius:8px">${P.n}</span>`;
     if (P.s.box === "box") b.innerHTML = `<span style="background:rgba(0,0,0,.65);padding:2px 8px;border-radius:6px">${P.n}</span>`;
-    const on = Object.keys(P.s).every(k => ST[k] === P.s[k] || (k === "hl" && !ST.karaoke));
-    b.classList.toggle("on", on);
+    b.classList.toggle("on", Object.keys(P.s).every(k => ST[k] === P.s[k] || (k === "hl" && !ST.karaoke)));
     b.onclick = () => { Object.assign(ST, P.s); saveST(); paintStyleUI(); };
     pb.appendChild(b);
   });
@@ -968,23 +1494,34 @@ function paintStyleUI(){
   $("optKar").checked = ST.karaoke; $("optAnim").checked = ST.anim;
   $("hlLbl").hidden = $("hlColors").hidden = !ST.karaoke;
   $("csize").value = ST.size; $("sizeVal").textContent = ST.size;
-  paintBox && paintBox(); paintPos && paintPos(); paintLang && paintLang(); paintFit2 && paintFit2();
+  paintBox && paintBox(); paintPos && paintPos(); paintLang && paintLang(); paintFit2 && paintFit2(); paintFmt && paintFmt();
 }
 paintBox = segInit("segBox", () => ST.box, v => { ST.box = v; saveST(); paintStyleUI(); });
 paintPos = segInit("segPos", () => { const y = ST.y; return y < 0.35 ? ".2" : y < 0.62 ? ".5" : ".72"; }, v => { ST.y = +v; ST.x = 0.5; saveST(); });
 paintLang = segInit("segLang", () => ST.lang, v => { ST.lang = v; saveST(); if (v !== "he" && !caps.some(c => c.en)) toast("עוד אין תרגום. לחצו 'תרגם את כל הכתוביות'"); });
-segInit("segFmt", () => S.fmt, v => { S.fmt = v; saveS(); updFmt(); });
-$("saveOrig").onclick = () => {
-  if (!recBlob) return;
-  const ext = /mp4/.test(recBlob.type) ? "mp4" : "webm", name = "original-" + new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-") + "." + ext;
-  const file = new File([recBlob], name, { type: recBlob.type || "video/" + ext });
-  if (navigator.canShare && navigator.canShare({ files: [file] })) navigator.share({ files: [file] }).catch(() => {});
-  else { const a = document.createElement("a"); a.href = videoUrl; a.download = name; a.click(); }
-};
-paintFit2 = segInit("segFit2", () => S.fit, v => { S.fit = v; saveS(); $("player").style.objectFit = v; });
+paintFit2 = segInit("segFit2", () => S.fit, v => { S.fit = v; saveS(); vDirty = true; });
+paintFmt = segInit("segFmt", () => S.fmt, v => { S.fmt = v; saveS(); updFmt(); paintSaveSum(); });
 $("optKar").onchange = () => { ST.karaoke = $("optKar").checked; saveST(); paintStyleUI(); };
 $("optAnim").onchange = () => { ST.anim = $("optAnim").checked; saveST(); };
 $("csize").oninput = () => { ST.size = +$("csize").value; $("sizeVal").textContent = ST.size; saveST(); };
+
+// ---- trim / silence / zoom panel
+let paintCutLvl = null;
+function paintCut(){
+  $("optCut").checked = ED.cut; $("optZoom").checked = ED.zoom; paintCutLvl && paintCutLvl();
+  $("optCut").disabled = !voiced; $("segCut").hidden = !ED.cut;
+  const b = ED.trimE > 0 ? ED.trimE : duration;
+  $("trimInfo").textContent = "מ-" + fmtP(ED.trimS) + " עד " + fmtP(b) + (ED.trimS || ED.trimE ? " · נחתכו " + fmtP(duration - (b - ED.trimS)) : "") + ". הזיזו את הסרטון לנקודה הרצויה ולחצו.";
+  if (!voiced) $("cutInfo").textContent = "זמין אחרי שהקול נטען.";
+  else if (ED.cut) { const removed = (b - ED.trimS) - keptLen(); $("cutInfo").textContent = "יחתכו " + removed.toFixed(1) + " שניות של שתיקה (מסומנות בפסים אדומים בציר הזמן). הסרטון יהיה " + fmtP(keptLen()) + "."; }
+  else $("cutInfo").textContent = "";
+}
+paintCutLvl = segInit("segCut", () => ED.cutLvl, v => { ED.cutLvl = v; calcKeep(); renderTimeline(); paintCut(); });
+$("optCut").onchange = () => { ED.cut = $("optCut").checked; calcKeep(); renderTimeline(); paintCut(); };
+$("optZoom").onchange = () => { ED.zoom = $("optZoom").checked; vDirty = true; };
+$("trimS").onclick = () => { const t = $("player").currentTime; const b = ED.trimE > 0 ? ED.trimE : duration; if (t >= b - 0.3) return toast("נקודת ההתחלה חייבת להיות לפני הסוף"); ED.trimS = t; calcKeep(); renderTimeline(); paintCut(); toast("הסרטון יתחיל ב-" + fmtP(t)); };
+$("trimE").onclick = () => { const t = $("player").currentTime; if (t <= ED.trimS + 0.3) return toast("נקודת הסיום חייבת להיות אחרי ההתחלה"); ED.trimE = t; calcKeep(); renderTimeline(); paintCut(); toast("הסרטון יסתיים ב-" + fmtP(t)); };
+$("trimR").onclick = () => { ED.trimS = 0; ED.trimE = 0; calcKeep(); renderTimeline(); paintCut(); };
 
 // ---- translation (MyMemory, free)
 async function translate(text){
@@ -998,78 +1535,262 @@ $("trAll").onclick = async () => {
   const todo = caps.filter(c => c.he.trim() && !c.en);
   $("trErr").textContent = "";
   if (!todo.length) { $("trErr").textContent = caps.length ? "כל הכתוביות כבר מתורגמות." : "אין כתוביות לתרגם."; return; }
-  $("trAll").disabled = true; $("trProg").hidden = false; let done = 0, fail = 0;
-  for (const c of todo) { const t = await translate(c.he); if (t) c.en = t; else fail++; done++; $("trProg").firstElementChild.style.width = (done / todo.length * 100) + "%"; }
-  $("trAll").disabled = false; $("trProg").hidden = true; edited = true;
+  $("trAll").disabled = true; bar($("trProg"), 0); let done = 0, fail = 0;
+  for (const c of todo) { const t = await translate(c.he); if (t) c.en = t; else fail++; done++; bar($("trProg"), done / todo.length); }
+  $("trAll").disabled = false; bar($("trProg"), null); edited = true;
   if (fail) $("trErr").textContent = fail + " שורות לא תורגמו (אולי הגעתם למגבלה היומית של שירות התרגום). אפשר לכתוב אותן ידנית.";
   else toast("התרגום הסתיים ✓");
   if (ST.lang === "he") { ST.lang = "both"; saveST(); paintLang(); }
   renderCaps();
 };
 
-// ---- export: play the video once, draw each frame + captions onto a 1080×1920 canvas and record it
+// ================= AI CAPTIONS (Whisper, runs on the device) =================
+let aiChunks = null, aiUse = null, aiWorker = null, aiRunning = false;
+const TJS = ["3.6.1/dist/transformers.min.js", "3.5.1", "3.3.3"].map(v => "https://cdn.jsdelivr.net/npm/@huggingface/transformers@" + v);
+const WORKER_SRC = `
+let asr = null, cur = "";
+self.onmessage = async e => {
+  const { audio, model, libs } = e.data;
+  try {
+    let T = null, lastErr;
+    for (const l of libs) { try { T = await import(l); break; } catch (x) { lastErr = x; } }
+    if (!T) throw new Error("load library: " + (lastErr && lastErr.message));
+    T.env.allowLocalModels = false;
+    if (!asr || cur !== model) {
+      const files = {};
+      asr = await T.pipeline("automatic-speech-recognition", model, {
+        dtype: "q8", device: "wasm",
+        progress_callback: p => {
+          if (p.status === "progress" && p.file) { files[p.file] = [p.loaded || 0, p.total || 0];
+            let a = 0, b = 0; for (const k in files) { a += files[k][0]; b += files[k][1]; }
+            self.postMessage({ type: "dl", loaded: a, total: b }); }
+        }
+      });
+      cur = model;
+    }
+    self.postMessage({ type: "run" });
+    const out = await asr(audio, { language: "hebrew", task: "transcribe", chunk_length_s: 29, stride_length_s: 5, return_timestamps: true });
+    self.postMessage({ type: "done", chunks: out.chunks || [{ text: out.text, timestamp: [0, null] }] });
+  } catch (err) { self.postMessage({ type: "error", msg: String(err && err.message || err) }); }
+};`;
+const paintModel = segInit("segModel", () => S.model, v => { S.model = v; saveS(); paintAi(); });
+const paintAiUse = segInit("segAiUse", () => aiUse, v => applyAi(v, true));
+function paintAi(){
+  paintModel();
+  const hasScript = chunks.length > 0;
+  $("modelTip").textContent = S.model === "base"
+    ? (hasScript ? "מומלץ כשיש תסריט: המנוע המהיר מספיק כדי לתזמן את התסריט שלכם במדויק." : "מהיר, אבל פחות מדויק בעברית. בלי תסריט עדיף \"מדויק\".")
+    : "מדויק יותר בעברית, אבל איטי יותר (בטלפון בערך 2–4 דקות לכל דקת סרטון) והורדה ראשונה גדולה. כדאי להיות מחוברים ל-Wi-Fi.";
+  $("aiRun").disabled = aiRunning || !origBuf;
+  if (!origBuf && !aiRunning && !$("aiStatus").textContent) $("aiStatus").textContent = "ממתין לטעינת הקול…";
+  if (origBuf && $("aiStatus").textContent === "ממתין לטעינת הקול…") $("aiStatus").textContent = "";
+  $("aiUseLbl").hidden = $("segAiUse").hidden = !aiChunks || !hasScript;
+  paintAiUse();
+}
+async function resample16k(buf){
+  const OC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+  const oc = new OC(1, Math.ceil(buf.duration * 16000), 16000), s = oc.createBufferSource();
+  s.buffer = buf; s.connect(oc.destination); s.start();
+  const r = await oc.startRendering(); return r.getChannelData(0).slice();
+}
+$("aiRun").onclick = async () => {
+  if (!origBuf || aiRunning) return;
+  aiRunning = true; paintAi();
+  const st = $("aiStatus"); st.className = "small"; st.textContent = "מכין את הקול…"; bar($("aiProg"), 0);
+  const t0a = performance.now();
+  try {
+    // the denoised voice (if made) helps the model when there is background noise
+    let src = origBuf;
+    if (AU.dn > 0 && dnCache[AU.dn]) { src = getAC().createBuffer(1, dnCache[AU.dn].length, origBuf.sampleRate); src.copyToChannel(dnCache[AU.dn], 0); }
+    const audio = await resample16k(src);
+    if (!aiWorker) aiWorker = new Worker(URL.createObjectURL(new Blob([WORKER_SRC], { type: "text/javascript" })), { type: "module" });
+    const res = await new Promise((resolve, reject) => {
+      let tick = null;
+      aiWorker.onmessage = e => {
+        const m = e.data;
+        if (m.type === "dl") { const p = m.total ? m.loaded / m.total : 0; bar($("aiProg"), p); st.textContent = "מוריד את מנוע ה-AI (פעם ראשונה בלבד)… " + Math.round(m.loaded / 1048576) + "MB" + (m.total ? " מתוך " + Math.round(m.total / 1048576) + "MB" : ""); }
+        if (m.type === "run") { bar($("aiProg"), null); const r0 = performance.now(); tick = setInterval(() => st.textContent = "🤖 מקשיב לסרטון ורושם… " + Math.round((performance.now() - r0) / 1000) + " שניות (סרטון של " + fmt(duration) + ")", 500); }
+        if (m.type === "done") { clearInterval(tick); resolve(m.chunks); }
+        if (m.type === "error") { clearInterval(tick); reject(new Error(m.msg)); }
+      };
+      aiWorker.onerror = e => { clearInterval(tick); reject(new Error(e.message || "worker")); };
+      aiWorker.postMessage({ audio, model: "onnx-community/whisper-" + S.model, libs: TJS }, [audio.buffer]);
+    });
+    aiChunks = res.filter(c => c.text && c.text.trim()).map((c, i, a) => ({ text: c.text.trim(), s: c.timestamp[0] || 0, e: c.timestamp[1] != null ? c.timestamp[1] : (a[i + 1] ? a[i + 1].timestamp[0] : duration) }));
+    if (!aiChunks.length) throw new Error("לא זוהה דיבור בסרטון");
+    st.className = "small okc"; st.textContent = "✅ הזיהוי הסתיים תוך " + Math.round((performance.now() - t0a) / 1000) + " שניות.";
+    applyAi(chunks.length ? "sync" : "text", false);
+  } catch(e) {
+    console.warn(e); st.className = "err";
+    st.textContent = /load library|import|fetch|network/i.test(e.message) ? "לא הצלחתי להוריד את מנוע ה-AI. בדקו חיבור לאינטרנט ונסו שוב." :
+      /memory|alloc/i.test(e.message) ? "לטלפון אין מספיק זיכרון למנוע הזה. נסו את המנוע \"מהיר\" או סרטון קצר יותר." : "הזיהוי נכשל: " + e.message;
+    try { aiWorker && aiWorker.terminate(); } catch(x){} aiWorker = null;
+  }
+  bar($("aiProg"), null); aiRunning = false; paintAi();
+};
+// words of the AI chunks with estimated times (spread by letter count inside each chunk)
+function aiWords(){
+  const out = [];
+  for (const c of aiChunks) {
+    const ws = words(c.text), tot = ws.reduce((s, w) => s + w.length + 1, 0) || 1; let acc = 0;
+    for (const w of ws) { out.push({ w, t: c.s + (c.e - c.s) * acc / tot }); acc += w.length + 1; }
+  }
+  return out;
+}
+const normW = w => w.replace(/[֑-ׇ]/g, "").replace(/[^\p{L}\p{N}]/gu, "").toLowerCase();
+const similarW = (a, b) => a === b ? 0 : (a.length >= 3 && b.length >= 3 && (a.endsWith(b) || b.endsWith(a) || a.slice(1) === b || b.slice(1) === a)) ? 1 : 2;
+// align the script's words to the recognized words (edit distance) and take the timing from the matches
+function alignScript(){
+  const sw = []; chunks.forEach((c, ci) => words(c).forEach(w => sw.push({ n: normW(w), ci })));
+  const aw = aiWords().map(x => ({ n: normW(x.w), t: x.t }));
+  const n = sw.length, m = aw.length; if (!n || !m) return null;
+  const times = new Array(n).fill(null);
+  if (n * m > 8e6) { for (let i = 0; i < n; i++) times[i] = aw[Math.min(m - 1, Math.floor(i / n * m))].t; }
+  else {
+    const W = m + 1, D = new Int32Array((n + 1) * W);
+    for (let i = 0; i <= n; i++) D[i * W] = i * 2;
+    for (let j = 0; j <= m; j++) D[j] = j * 2;
+    for (let i = 1; i <= n; i++) for (let j = 1; j <= m; j++)
+      D[i * W + j] = Math.min(D[(i - 1) * W + j - 1] + similarW(sw[i - 1].n, aw[j - 1].n), D[(i - 1) * W + j] + 2, D[i * W + j - 1] + 2);
+    let i = n, j = m;
+    while (i > 0 && j > 0) {
+      const d = D[i * W + j], c = similarW(sw[i - 1].n, aw[j - 1].n);
+      if (d === D[(i - 1) * W + j - 1] + c) { if (c < 2) times[i - 1] = aw[j - 1].t; i--; j--; }
+      else if (d === D[(i - 1) * W + j] + 2) i--; else j--;
+    }
+    const known = []; times.forEach((t, k) => { if (t != null) known.push(k); });
+    if (!known.length) return null;
+    for (let k = 0; k < n; k++) if (times[k] == null) {
+      const p = known.filter(x => x < k).pop(), q = known.find(x => x > k);
+      if (p == null) times[k] = Math.max(0, times[q] - (q - k) * 0.35);
+      else if (q == null) times[k] = times[p] + (k - p) * 0.35;
+      else times[k] = times[p] + (times[q] - times[p]) * (k - p) / (q - p);
+    }
+  }
+  for (let k = 1; k < n; k++) if (times[k] < times[k - 1]) times[k] = times[k - 1];
+  const lastEnd = aiChunks[aiChunks.length - 1].e || duration;
+  const out = chunks.map((c, ci) => {
+    const wt = sw.map((x, k) => x.ci === ci ? times[k] : null).filter(x => x != null);
+    return { start: Math.max(0, wt[0] - 0.08), wt, he: c, en: "", end: 0 };
+  });
+  out.forEach((c, i) => c.end = out[i + 1] ? out[i + 1].start : Math.max(c.wt[c.wt.length - 1] + 0.8, lastEnd));
+  return out;
+}
+function applyAi(mode, ask){
+  if (!aiChunks) return;
+  if (ask && edited && !confirm("להחליף את הכתוביות? השינויים שעשיתם יימחקו.")) { paintAiUse(); return; }
+  if (mode === "sync" && chunks.length) {
+    const r = alignScript();
+    if (r) { caps = r; capSrc = "aisync"; aiUse = "sync"; $("srcNote").textContent = "🤖 התסריט שלכם, מתוזמן מילה-במילה לפי מה שאמרתם בפועל."; }
+    else mode = "text";
+  }
+  if (mode !== "sync" || !chunks.length) {
+    const ws = aiWords(); caps = [];
+    for (let i = 0; i < ws.length; ) {
+      const grp = [ws[i]]; let len = ws[i].w.length; i++;
+      while (i < ws.length && grp.length < 5 && len < 28 && !/[.!?,]$/.test(grp[grp.length - 1].w) && ws[i].t - grp[grp.length - 1].t < 1.2) { grp.push(ws[i]); len += ws[i].w.length + 1; i++; }
+      caps.push({ start: Math.max(0, grp[0].t - 0.05), end: 0, he: grp.map(x => x.w).join(" "), en: "", wt: grp.map(x => x.t) });
+    }
+    const lastEnd = aiChunks[aiChunks.length - 1].e || duration;
+    caps.forEach((c, i) => c.end = caps[i + 1] ? Math.min(caps[i + 1].start, c.wt[c.wt.length - 1] + 1.5) : Math.max(c.wt[c.wt.length - 1] + 0.8, lastEnd));
+    capSrc = "ai"; aiUse = "text"; $("srcNote").textContent = "🤖 הטקסט שה-AI זיהה. עברו על השורות ותקנו מילים שזוהו לא נכון.";
+  }
+  edited = false; sel = -1; paintSrc(); paintAi(); renderCaps();
+}
+
+// ================= EXPORT =================
+// Plays the kept parts once, draws every frame (picture fx + captions + logo) on a canvas and records it.
+// The recorder is paused while jumping over cut parts, so the cuts don't show.
 let exporting = false, exRec = null, exCancelled = false;
-function drawVideo(ctx, v, W, H){
-  ctx.fillStyle = "#000"; ctx.fillRect(0, 0, W, H);
-  const vw = v.videoWidth, vh = v.videoHeight; if (!vw) return;
-  const cover = Math.max(W / vw, H / vh), fit = Math.min(W / vw, H / vh);
-  if (S.fit === "contain") {
-    ctx.globalAlpha = 0.3; ctx.drawImage(v, (W - vw * cover) / 2, (H - vh * cover) / 2, vw * cover, vh * cover); ctx.globalAlpha = 1;
-    ctx.drawImage(v, (W - vw * fit) / 2, (H - vh * fit) / 2, vw * fit, vh * fit);
-  } else ctx.drawImage(v, (W - vw * cover) / 2, (H - vh * cover) / 2, vw * cover, vh * cover);
+function paintSaveSum(){
+  const b = [];
+  b.push(FMT.W > FMT.H ? "לרוחב 1920×1080" : "לאורך 1080×1920");
+  b.push("אורך " + fmtP(keptLen()));
+  if (fxActive()) b.push("שיפור תמונה"); if (mixBuf) b.push("שיפור קול" + (musicBuf ? " + מוזיקה" : ""));
+  if (ED.cut) b.push("בלי שתיקות"); if (ED.zoom) b.push("זום דינמי"); if (WM.text.trim() || WM.img) b.push("לוגו");
+  $("saveSum").textContent = "יישמר: " + b.join(" · ");
+}
+async function waitSeek(v, t){
+  if (Math.abs(v.currentTime - t) < 0.01 && !v.seeking) return;
+  await new Promise(r => { let ok = false; const done = () => { if (ok) return; ok = true; v.removeEventListener("seeked", done); r(); }; v.addEventListener("seeked", done); v.currentTime = t; setTimeout(done, 3000); });
 }
 async function doExport(){
   if (exporting) return;
   const v = $("player"), W = FMT.W, H = FMT.H;
-  ensureAudio();
-  v.pause(); v.currentTime = 0;
-  const playing = v.play();   // started directly from the tap so phones allow sound
+  ensureElSrc();
+  const segs = (keep && keep.length ? keep : [{ s: 0, e: duration }]).filter(g => g.e - g.s > 0.05);
+  if (!segs.length) return toast("אין מה לשמור. בדקו את החיתוך.");
+  const total = segs.reduce((s, g) => s + g.e - g.s, 0) || 1;
+  v.pause();
+  // start playback right inside the tap so phones allow sound
+  v.muted = !!mixBuf;
+  const first = v.play();
   exporting = true; exCancelled = false; $("exOv").hidden = false; $("exPct").textContent = "0%"; $("exBar").style.width = "0";
-  if (outGain) outGain.gain.value = 0;   // silent while saving
-  const cv = document.createElement("canvas"); cv.width = W; cv.height = H; const ctx = cv.getContext("2d", { alpha: false });
-  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = "high";
+  outGain.gain.value = 0;   // silent on the speaker while saving
+  try { await first; } catch(e) { finishEx(); toast("לא הצלחתי לנגן את הסרטון לשמירה. נסו שוב."); return; }
+  v.pause(); stopBuf();
+  const cv = document.createElement("canvas"); cv.width = W; cv.height = H;
+  const ctx = cv.getContext("2d", { alpha: false }); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = "high";
   const out = cv.captureStream(30);
   if (adest) adest.stream.getAudioTracks().forEach(t => out.addTrack(t));
-  const mime = pickMime(); const chunksOut = [];
-  try { exRec = new MediaRecorder(out, mime ? { mimeType: mime, videoBitsPerSecond: 16e6 } : undefined); } catch(e){ exRec = new MediaRecorder(out); }
+  const mime = pickMime(), chunksOut = [];
+  try { exRec = new MediaRecorder(out, mime ? { mimeType: mime, videoBitsPerSecond: 16e6, audioBitsPerSecond: 192000 } : undefined); } catch(e){ exRec = new MediaRecorder(out); }
   exRec.ondataavailable = e => { if (e.data.size) chunksOut.push(e.data); };
   const stopped = new Promise(r => exRec.onstop = r);
-  try { await playing; } catch(e) { finishEx(); toast("לא הצלחתי לנגן את הסרטון לשמירה. נסו שוב."); return; }
-  drawVideo(ctx, v, W, H); drawCaption(ctx, v.currentTime, W, H);
-  exRec.start(500);
-  await new Promise(res => {
-    const frame = () => {
-      if (!exporting) return res();
-      drawVideo(ctx, v, W, H); drawCaption(ctx, v.currentTime, W, H);
-      const p = duration ? clamp(v.currentTime / duration, 0, 1) : 0;
-      $("exPct").textContent = Math.round(p * 100) + "%"; $("exBar").style.width = p * 100 + "%";
-      if (v.ended) return res();
+  const draw = () => { drawVideo(ctx, v, W, H, v.currentTime, 1920); drawOverlay(ctx, v.currentTime, W, H); };
+  let doneT = 0, frames = 0, tStart = performance.now();
+  for (let si = 0; si < segs.length && exporting; si++) {
+    const g = segs[si];
+    await waitSeek(v, g.s); draw();
+    if (exRec.state === "inactive") exRec.start(500); else exRec.resume();
+    try { await v.play(); } catch(e) {}
+    if (mixBuf) playBuf(v.currentTime);
+    await new Promise(res => {
+      const frame = () => {
+        if (!exporting) return res();
+        draw(); frames++;
+        const p = (doneT + clamp(v.currentTime - g.s, 0, g.e - g.s)) / total;
+        $("exPct").textContent = Math.round(p * 100) + "%"; $("exBar").style.width = p * 100 + "%";
+        if (v.ended || v.currentTime >= g.e - 0.02) return res();
+        requestAnimationFrame(frame);
+      };
       requestAnimationFrame(frame);
-    };
-    v.addEventListener("ended", () => setTimeout(res, 120), { once: true });
-    requestAnimationFrame(frame);
-  });
-  exRec.state !== "inactive" && exRec.stop(); await stopped;
+    });
+    v.pause(); stopBuf();
+    if (exRec.state === "recording") exRec.pause();
+    doneT += g.e - g.s;
+  }
+  if (exRec.state !== "inactive") exRec.stop(); await stopped;
+  const wasCancelled = exCancelled;
   finishEx();
-  if (exCancelled) return;
+  if (wasCancelled) return;
   const blob = new Blob(chunksOut, { type: exRec.mimeType || mime || "video/webm" });
   const ext = /mp4/.test(blob.type) ? "mp4" : "webm";
   const name = "tiktok-" + new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-") + "." + ext;
   const a = $("dlLink"); if (a.href.startsWith("blob:")) URL.revokeObjectURL(a.href);
   a.href = URL.createObjectURL(blob); a.download = name;
-  $("resNote").textContent = (ext === "mp4" ? "קובץ MP4, מוכן להעלאה לטיקטוק." : "קובץ WebM (הדפדפן הזה לא יודע לשמור MP4). טיקטוק במחשב מקבל אותו; באפליקציה ייתכן שיהיה צריך להמיר.") + " גודל: " + (blob.size / 1048576).toFixed(1) + "MB";
+  $("resNote").textContent = (ext === "mp4" ? "קובץ MP4, מוכן להעלאה." : "קובץ WebM (הדפדפן הזה לא יודע לשמור MP4). טיקטוק במחשב מקבל אותו; באפליקציה ייתכן שיהיה צריך להמיר.") + " גודל: " + (blob.size / 1048576).toFixed(1) + "MB";
   const file = new File([blob], name, { type: blob.type });
   const canShare = navigator.canShare && navigator.canShare({ files: [file] });
   $("shareBtn").hidden = !canShare;
   $("shareBtn").onclick = () => navigator.share({ files: [file], title: "סרטון" }).catch(() => {});
   $("result").hidden = false; setTab("save");
   if (!canShare) a.click();
-  toast("הסרטון נשמר ✓");
+  const fps = frames / Math.max(0.5, (performance.now() - tStart) / 1000);
+  toast(fps < 18 ? "הסרטון נשמר, אבל הטלפון התקשה לעבד את כל האפקטים והתנועה עלולה לקפוץ. נסו פחות שיפורי תמונה (למשל בלי החלקת עור)." : "הסרטון נשמר ✓");
 }
-function finishEx(){ exporting = false; $("exOv").hidden = true; $("player").pause(); if (outGain) outGain.gain.value = 1; }
+function finishEx(){ exporting = false; $("exOv").hidden = true; const v = $("player"); v.pause(); stopBuf(); if (outGain) outGain.gain.value = 1; v.muted = !!mixBuf && !abHold; vDirty = true; }
 $("exportBtn").onclick = doExport;
 $("exCancel").onclick = () => { exCancelled = true; exporting = false; };
+$("saveOrig").onclick = () => {
+  if (!recBlob) return;
+  const ext = /mp4/.test(recBlob.type) ? "mp4" : "webm", name = "original-" + new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-") + "." + ext;
+  const file = new File([recBlob], name, { type: recBlob.type || "video/" + ext });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) navigator.share({ files: [file] }).catch(() => {});
+  else { const a = document.createElement("a"); a.href = videoUrl; a.download = name; a.click(); }
+};
 
+paintAudio("");
 window.addEventListener("beforeunload", e => { if (recBlob && !$("edit").hidden) { e.preventDefault(); e.returnValue = ""; } });
 </script>
 </body>

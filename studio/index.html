@@ -1,0 +1,610 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>סטודיו כתוביות</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700;900&family=Heebo:wght@400;700;900&family=Secular+One&family=Suez+One&family=Karantina:wght@700&family=Amatic+SC:wght@700&family=Varela+Round&family=Frank+Ruhl+Libre:wght@700&display=swap">
+<style>
+/* Three screens: script → record (camera + prompter) → edit (captions, style, export). Phone-first, vertical 9:16 */
+:root{
+  --bg:#0e0f13; --surface:#1a1c23; --surface2:#242733; --fg:#f2f3f7; --muted:#a2a7b8; --line:#2f3342;
+  --accent:#ff3b6b; --accent2:#22d3ee; --accent-fg:#fff; --ok:#34d399; --font:"Rubik",system-ui,Arial,sans-serif; color-scheme:dark;
+}
+*{box-sizing:border-box} [hidden]{display:none!important}
+html,body{margin:0;height:100%} body{background:var(--bg);color:var(--fg);font-family:var(--font);font-size:16px;-webkit-tap-highlight-color:transparent}
+button,input,select,textarea{font:inherit;color:var(--fg)}
+button{cursor:pointer;border-radius:12px;border:1px solid var(--line);background:var(--surface);padding:10px 14px}
+button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-fg);font-weight:700}
+button.ghost{background:transparent}
+button:disabled{opacity:.45}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid var(--accent2);outline-offset:2px}
+.wrap{max-width:560px;margin:0 auto;padding:16px;display:flex;flex-direction:column;gap:14px}
+h1{font-size:24px;margin:4px 0 0;font-weight:900} h1 span{color:var(--accent)}
+h2{font-size:18px;margin:0}
+.note{color:var(--muted);font-size:14px;line-height:1.5}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:10px}
+textarea{width:100%;min-height:220px;resize:vertical;padding:12px;border-radius:12px;border:1px solid var(--line);background:var(--bg);line-height:1.6;font-size:17px}
+input[type=text],select{width:100%;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--bg)}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.grow{flex:1}
+.err{color:#ff8a8a;font-size:14px;min-height:1em}
+label.lbl{font-size:13px;color:var(--muted)}
+
+/* ---- record screen ---- */
+#recScreen{position:fixed;inset:0;background:#000;z-index:10}
+#cam{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+#cam.back{transform:none}
+.prompter{position:absolute;left:0;right:0;top:0;height:42%;overflow:hidden;background:linear-gradient(rgba(0,0,0,.72),rgba(0,0,0,.55) 70%,rgba(0,0,0,0));pointer-events:none}
+.prompter .txt{position:absolute;left:6%;right:6%;top:0;color:#fff;font-weight:700;line-height:1.45;text-align:center;will-change:transform;text-shadow:0 2px 6px rgba(0,0,0,.6)}
+.prompter .txt span{display:block;margin-bottom:.15em}
+.prompter .txt span.done{opacity:.35}
+.prompter .marker{position:absolute;left:3%;right:3%;height:2px;background:var(--accent2);opacity:.8}
+.recbar{position:absolute;left:0;right:0;bottom:0;padding:14px 14px calc(14px + env(safe-area-inset-bottom));background:linear-gradient(rgba(0,0,0,0),rgba(0,0,0,.75) 35%);display:flex;flex-direction:column;gap:10px}
+.recbar .row button{background:rgba(26,28,35,.85)}
+.recbtn{width:76px;height:76px;border-radius:50%;border:5px solid #fff;background:var(--accent);padding:0;margin:0 auto;display:block}
+.recbtn.on{border-radius:18px;width:64px;height:64px;margin:6px auto}
+.timer{position:absolute;top:calc(44% + 6px);left:50%;transform:translateX(-50%);background:rgba(0,0,0,.6);padding:4px 12px;border-radius:999px;font-variant-numeric:tabular-nums;font-size:15px}
+.timer .dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--accent);margin-left:6px;vertical-align:middle}
+.count{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:140px;font-weight:900;color:#fff;text-shadow:0 4px 20px rgba(0,0,0,.6);pointer-events:none}
+.topbtns{position:absolute;top:calc(8px + env(safe-area-inset-top));left:8px;display:flex;gap:6px;z-index:2}
+.topbtns button{background:rgba(0,0,0,.55);border-color:transparent;padding:6px 10px;font-size:14px}
+
+/* ---- edit screen ---- */
+.stage{position:relative;width:100%;max-width:380px;margin:0 auto;aspect-ratio:9/16;background:#000;border-radius:16px;overflow:hidden}
+.stage video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.cap{position:absolute;left:6%;right:6%;display:flex;flex-direction:column;align-items:center;gap:4px;pointer-events:none;text-align:center}
+.cap .l{display:inline;line-height:1.25;padding:.08em .3em;border-radius:.25em;-webkit-box-decoration-break:clone;box-decoration-break:clone}
+.caps{display:flex;flex-direction:column;gap:6px;max-height:360px;overflow:auto}
+.capRow{display:grid;grid-template-columns:auto 1fr auto;gap:6px;align-items:start;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:8px}
+.capRow.cur{border-color:var(--accent2)}
+.capRow .t{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;direction:ltr;cursor:pointer;padding-top:6px;white-space:nowrap}
+.capRow input{width:100%;padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:var(--surface);font-size:15px}
+.capRow .en{direction:ltr;text-align:left;margin-top:4px}
+.capRow .x{padding:4px 8px;font-size:13px}
+.seg{display:flex;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.seg button{flex:1;border:0;border-radius:0;background:transparent;padding:9px 6px;font-size:14px}
+.seg button.on{background:var(--accent2);color:#06202a;font-weight:700}
+.fonts{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.fonts button{padding:8px 4px;font-size:18px}
+.fonts button.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+.swatches{display:flex;gap:6px;flex-wrap:wrap}
+.swatches button{width:34px;height:34px;border-radius:50%;padding:0;border:2px solid var(--line)}
+.swatches button.on{border-color:#fff;box-shadow:0 0 0 2px var(--accent)}
+.progress{height:8px;border-radius:4px;background:var(--bg);overflow:hidden;border:1px solid var(--line)}
+.progress div{height:100%;width:0;background:var(--accent);transition:width .2s}
+</style>
+</head>
+<body>
+
+<!-- ============ 1. SCRIPT ============ -->
+<section id="scriptScreen">
+  <div class="wrap">
+    <h1>סטודיו <span>כתוביות</span></h1>
+    <div class="note">כתבו את מה שתרצו להגיד. בזמן הצילום הטקסט יזוז מול העיניים, ואחרי הצילום הוא יהפוך לכתוביות על הסרטון.</div>
+    <div class="card">
+      <label class="lbl" for="script">התסריט שלכם</label>
+      <textarea id="script" placeholder="היי לכולם! היום אני רוצה לספר לכם על…"></textarea>
+      <div class="row note" id="scriptStats"></div>
+    </div>
+    <div class="card">
+      <h2>הגדרות טלפרומפטר</h2>
+      <label class="lbl" for="speed">מהירות: <b id="speedVal"></b> מילים בדקה</label>
+      <input type="range" id="speed" min="60" max="240" step="5" value="130">
+      <label class="lbl" for="psize">גודל הטקסט</label>
+      <input type="range" id="psize" min="22" max="56" step="1" value="34">
+      <div class="note">טיפ: הטקסט מופיע בחלק העליון של המסך, קרוב למצלמה, כדי שייראה שאתם מסתכלים לצופים בעיניים.</div>
+    </div>
+    <button class="primary" id="goRec" style="padding:16px;font-size:18px">🎥 לצילום</button>
+    <div class="err" id="scriptErr" role="status"></div>
+    <div class="row">
+      <label class="lbl grow">או: יש לכם כבר סרטון?</label>
+      <button id="uploadBtn">העלאת סרטון קיים</button>
+      <input type="file" id="uploadInput" accept="video/*" hidden>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 2. RECORD ============ -->
+<section id="recScreen" hidden>
+  <video id="cam" autoplay playsinline muted></video>
+  <div class="prompter" id="prompter"><div class="txt" id="ptxt"></div><div class="marker" id="pmarker"></div></div>
+  <div class="topbtns">
+    <button id="recBack">✕ סגור</button>
+    <button id="flipBtn">🔄 מצלמה</button>
+  </div>
+  <div class="timer" id="timer" hidden><span class="dot"></span><span id="timerTxt">00:00</span></div>
+  <div class="count" id="count" hidden></div>
+  <div class="recbar">
+    <div class="row">
+      <button class="grow" id="slower">🐢 לאט יותר</button>
+      <span id="speedLive" style="min-width:70px;text-align:center;font-size:14px"></span>
+      <button class="grow" id="faster">🐇 מהר יותר</button>
+    </div>
+    <div class="row">
+      <button class="grow" id="pauseP">⏸ עצור טקסט</button>
+      <button class="grow" id="resetP">⏮ לתחילת הטקסט</button>
+    </div>
+    <button class="recbtn" id="recBtn" aria-label="התחל הקלטה"></button>
+    <div class="err" id="recErr" role="status" style="text-align:center"></div>
+  </div>
+</section>
+
+<!-- ============ 3. EDIT ============ -->
+<section id="editScreen" hidden>
+  <div class="wrap">
+    <div class="row"><button class="ghost" id="editBack">→ צילום חדש</button><span class="grow"></span><h2>עריכת כתוביות</h2></div>
+    <div class="stage" id="stage">
+      <video id="player" playsinline></video>
+      <div class="cap" id="capPreview"></div>
+    </div>
+    <div class="row">
+      <button class="grow" id="playBtn">▶ נגן</button>
+    </div>
+
+    <div class="card">
+      <h2>הכתוביות</h2>
+      <div class="seg" id="srcSeg">
+        <button data-src="script" class="on">לפי התסריט</button>
+        <button data-src="speech">לפי מה שזוהה בדיבור</button>
+      </div>
+      <div class="note" id="srcNote"></div>
+      <div class="caps" id="caps"></div>
+      <div class="row">
+        <button class="small" id="addCap">+ כתובית בנקודה הנוכחית</button>
+        <span class="grow"></span>
+        <button id="shiftEarlier" title="כל הכתוביות מוקדם יותר">« 0.2ש׳</button>
+        <button id="shiftLater" title="כל הכתוביות מאוחר יותר">0.2ש׳ »</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>אנגלית</h2>
+      <div class="note">אפשר להוסיף שורת תרגום לאנגלית מתחת לכל כתובית. התרגום האוטומטי נעזר בשירות התרגום החינמי MyMemory (הטקסט נשלח אליו), וכדאי לעבור עליו ולתקן.</div>
+      <div class="row"><button class="grow" id="translateAll">🌍 תרגם הכול לאנגלית</button></div>
+      <div class="progress" id="trProg" hidden><div></div></div>
+      <div class="err" id="trErr" role="status"></div>
+    </div>
+
+    <div class="card">
+      <h2>עיצוב</h2>
+      <label class="lbl">שפה על המסך</label>
+      <div class="seg" id="langSeg"><button data-l="he" class="on">עברית</button><button data-l="both">עברית + אנגלית</button><button data-l="en">אנגלית</button></div>
+      <label class="lbl">גופן</label>
+      <div class="fonts" id="fonts"></div>
+      <label class="lbl">צבע טקסט</label>
+      <div class="swatches" id="colors"></div>
+      <label class="lbl">סגנון</label>
+      <div class="seg" id="boxSeg"><button data-b="box" class="on">רקע</button><button data-b="outline">קו מתאר</button><button data-b="shadow">צל</button><button data-b="none">נקי</button></div>
+      <label class="lbl" for="csize">גודל</label>
+      <input type="range" id="csize" min="40" max="110" step="2" value="64">
+      <label class="lbl">מיקום</label>
+      <div class="seg" id="posSeg"><button data-p="top">למעלה</button><button data-p="mid">באמצע</button><button data-p="low" class="on">למטה</button></div>
+    </div>
+
+    <div class="card">
+      <h2>שמירת הסרטון</h2>
+      <div class="note">הסרטון נשמר בגודל 1080×1920 (מתאים לטיקטוק), עם הכתוביות צרובות עליו. השמירה לוקחת בערך את אורך הסרטון.</div>
+      <button class="primary" id="exportBtn" style="padding:14px">⬇ שמור סרטון עם כתוביות</button>
+      <div class="progress" id="exProg" hidden><div></div></div>
+      <div class="note" id="exNote"></div>
+      <a id="dlLink" hidden class="note" style="color:var(--accent2)"></a>
+    </div>
+  </div>
+</section>
+
+<script>
+const $ = id => document.getElementById(id);
+const store = (k, v) => { try { if (v === undefined) return JSON.parse(localStorage.getItem(k)); localStorage.setItem(k, JSON.stringify(v)); } catch(e){ return null; } };
+function show(id){ for (const s of ["scriptScreen","recScreen","editScreen"]) $(s).hidden = s !== id; }
+const fmtT = t => { t = Math.max(0, t); const m = Math.floor(t / 60), s = (t % 60); return String(m).padStart(2,"0") + ":" + s.toFixed(1).padStart(4,"0"); };
+
+// ================= 1. SCRIPT =================
+$("script").value = store("st_script") || "";
+$("speed").value = store("st_speed") || 130;
+$("psize").value = store("st_psize") || 34;
+function words(t){ return t.trim().split(/\s+/).filter(Boolean); }
+function updStats(){
+  const n = words($("script").value).length, wpm = +$("speed").value;
+  $("speedVal").textContent = wpm;
+  $("scriptStats").textContent = n ? n + " מילים · בערך " + Math.max(1, Math.round(n / wpm * 60)) + " שניות" : "";
+  store("st_script", $("script").value); store("st_speed", wpm); store("st_psize", +$("psize").value);
+}
+for (const id of ["script","speed","psize"]) $(id).addEventListener("input", updStats);
+updStats();
+
+// Caption chunks: TikTok-style short phrases (≈ up to 5 words, break at punctuation)
+function chunkScript(t){
+  const out = [];
+  for (const para of t.split(/\n+/)) {
+    let cur = [];
+    for (const w of words(para)) {
+      cur.push(w);
+      if (cur.length >= 5 || /[.!?,;:…]$/.test(w) && cur.length >= 2) { out.push(cur.join(" ")); cur = []; }
+    }
+    if (cur.length) out.push(cur.join(" "));
+  }
+  return out;
+}
+
+$("goRec").onclick = async () => {
+  $("scriptErr").textContent = "";
+  if (!words($("script").value).length) { $("scriptErr").textContent = "כתבו קודם את מה שתרצו להגיד."; return; }
+  await openCamera();
+};
+$("uploadBtn").onclick = () => $("uploadInput").click();
+$("uploadInput").onchange = () => {
+  const f = $("uploadInput").files[0]; if (!f) return;
+  recBlob = f; speechSegs = []; scriptTimes = [];
+  chunks = chunkScript($("script").value);
+  openEditor(true);
+};
+
+// ================= 2. RECORD =================
+let camStream = null, facing = "user", recorder = null, recChunks = [], recBlob = null, recMime = "";
+let t0 = 0, recording = false, timerInt = null;
+let chunks = [], chunkEls = [], scriptTimes = [], speechSegs = [];
+let pPos = 0, pPaused = false, pLast = 0, raf = 0, wpm = 130;
+
+async function openCamera(){
+  $("recErr").textContent = "";
+  show("recScreen");
+  buildPrompter();
+  try {
+    if (camStream) camStream.getTracks().forEach(t => t.stop());
+    camStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: facing, width: { ideal: 1080 }, height: { ideal: 1920 }, aspectRatio: { ideal: 9/16 }, frameRate: { ideal: 30 } },
+      audio: { echoCancellation: true, noiseSuppression: true }
+    });
+    $("cam").srcObject = camStream; $("cam").classList.toggle("back", facing !== "user");
+  } catch(e) {
+    $("recErr").textContent = "אין גישה למצלמה או למיקרופון. אשרו גישה בהגדרות הדפדפן ונסו שוב. אם הקישור נפתח בתוך וואטסאפ, פתחו אותו ב-Chrome או ב-Safari.";
+  }
+}
+$("flipBtn").onclick = () => { if (recording) return; facing = facing === "user" ? "environment" : "user"; openCamera(); };
+$("recBack").onclick = () => { if (recording) stopRec(true); closeCamera(); show("scriptScreen"); };
+function closeCamera(){ cancelAnimationFrame(raf); if (camStream) { camStream.getTracks().forEach(t => t.stop()); camStream = null; } }
+
+function buildPrompter(){
+  wpm = +$("speed").value;
+  chunks = chunkScript($("script").value);
+  const box = $("ptxt"); box.textContent = ""; box.style.fontSize = $("psize").value + "px";
+  chunkEls = chunks.map((c, i) => { const s = document.createElement("span"); s.textContent = c + " "; box.appendChild(s); return s; });
+  pPos = 0; pPaused = false; scriptTimes = new Array(chunks.length).fill(null);
+  $("pauseP").textContent = "⏸ עצור טקסט";
+  layoutPrompter(); cancelAnimationFrame(raf); pLast = performance.now(); raf = requestAnimationFrame(tick);
+  updSpeedLive();
+}
+// reading line sits at 38% of the prompter box height
+function markerY(){ return $("prompter").clientHeight * 0.38; }
+function layoutPrompter(){ $("pmarker").style.top = markerY() + "px"; $("ptxt").style.transform = `translateY(${markerY() - pPos}px)`; }
+function updSpeedLive(){ $("speedLive").textContent = wpm + " מ׳/ד׳"; }
+
+// scroll speed: pixels per second derived from words/minute and the text's measured words-per-pixel
+function pxPerSec(){
+  const h = $("ptxt").scrollHeight || 1, n = Math.max(1, words($("script").value).length);
+  return (h / n) * (wpm / 60);
+}
+function tick(now){
+  const dt = Math.min(0.1, (now - pLast) / 1000); pLast = now;
+  const running = recording || !$("count").hidden ? recording : false;
+  if (running && !pPaused) pPos = Math.min(pPos + pxPerSec() * dt, $("ptxt").scrollHeight);
+  layoutPrompter();
+  // which chunk is on the reading line → record its start time
+  if (recording) {
+    const t = (performance.now() - t0) / 1000;
+    for (let i = 0; i < chunkEls.length; i++) {
+      const el = chunkEls[i];
+      if (scriptTimes[i] === null && el.offsetTop <= pPos) { scriptTimes[i] = t; }
+      el.classList.toggle("done", el.offsetTop + el.offsetHeight < pPos - 4);
+    }
+  }
+  raf = requestAnimationFrame(tick);
+}
+$("slower").onclick = () => { wpm = Math.max(60, wpm - 10); $("speed").value = wpm; updStats(); updSpeedLive(); };
+$("faster").onclick = () => { wpm = Math.min(260, wpm + 10); $("speed").value = wpm; updStats(); updSpeedLive(); };
+$("pauseP").onclick = () => { pPaused = !pPaused; $("pauseP").textContent = pPaused ? "▶ המשך טקסט" : "⏸ עצור טקסט"; };
+$("resetP").onclick = () => { pPos = 0; for (const el of chunkEls) el.classList.remove("done"); };
+$("prompter").style.pointerEvents = "auto";
+$("prompter").onclick = () => $("pauseP").click();
+
+function pickMime(){
+  const c = ["video/mp4;codecs=avc1.42E01E,mp4a.40.2","video/mp4","video/webm;codecs=vp9,opus","video/webm;codecs=vp8,opus","video/webm"];
+  return c.find(m => window.MediaRecorder && MediaRecorder.isTypeSupported(m)) || "";
+}
+$("recBtn").onclick = () => recording ? stopRec() : countdown();
+async function countdown(){
+  if (!camStream) { await openCamera(); if (!camStream) return; }
+  $("recBtn").disabled = true; $("count").hidden = false;
+  for (const n of [3, 2, 1]) { $("count").textContent = n; await new Promise(r => setTimeout(r, 800)); }
+  $("count").hidden = true; $("recBtn").disabled = false;
+  startRec();
+}
+function startRec(){
+  recMime = pickMime(); recChunks = []; speechSegs = [];
+  try { recorder = new MediaRecorder(camStream, recMime ? { mimeType: recMime, videoBitsPerSecond: 6e6 } : undefined); }
+  catch(e){ $("recErr").textContent = "הדפדפן הזה לא תומך בהקלטת וידאו. נסו Chrome או Safari מעודכן."; return; }
+  recorder.ondataavailable = e => { if (e.data && e.data.size) recChunks.push(e.data); };
+  recorder.onstop = () => {
+    recBlob = new Blob(recChunks, { type: recorder.mimeType || recMime || "video/webm" });
+    closeCamera(); openEditor(false);
+  };
+  pPos = 0; scriptTimes = new Array(chunks.length).fill(null);
+  for (const el of chunkEls) el.classList.remove("done");
+  recorder.start(1000); t0 = performance.now(); recording = true;
+  $("recBtn").classList.add("on"); $("recBtn").setAttribute("aria-label", "עצור הקלטה");
+  $("timer").hidden = false; $("flipBtn").disabled = true;
+  timerInt = setInterval(() => { const s = Math.floor((performance.now() - t0) / 1000); $("timerTxt").textContent = String(Math.floor(s/60)).padStart(2,"0") + ":" + String(s%60).padStart(2,"0"); }, 250);
+  startSpeech();
+}
+function stopRec(discard){
+  recording = false; clearInterval(timerInt); stopSpeech();
+  $("recBtn").classList.remove("on"); $("timer").hidden = true; $("flipBtn").disabled = false;
+  if (recorder && recorder.state !== "inactive") { if (discard) recorder.onstop = null; recorder.stop(); }
+}
+
+// ---- speech recognition while recording (Chrome / Android / iOS Safari). Optional: captions still come from the script if it fails.
+let rec = null, speechOn = false, segStart = {};
+function startSpeech(){
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) return;
+  try {
+    rec = new SR(); rec.lang = "he-IL"; rec.continuous = true; rec.interimResults = true; speechOn = true;
+    rec.onresult = e => {
+      const t = (performance.now() - t0) / 1000;
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const key = rec._base + "_" + i;
+        if (segStart[key] === undefined) segStart[key] = Math.max(0, t - 0.6);
+        if (e.results[i].isFinal) {
+          const txt = e.results[i][0].transcript.trim();
+          if (txt) splitSpeech(txt, segStart[key], t);
+        }
+      }
+    };
+    rec._base = Date.now();
+    rec.onend = () => { if (speechOn && recording) { try { rec._base = Date.now(); rec.start(); } catch(e){} } };
+    rec.onerror = () => {};
+    rec.start();
+  } catch(e){ rec = null; }
+}
+function stopSpeech(){ speechOn = false; if (rec) { try { rec.stop(); } catch(e){} } }
+// break one recognized sentence into short captions spread over its time span
+function splitSpeech(txt, a, b){
+  const ws = words(txt), parts = [];
+  for (let i = 0; i < ws.length; i += 5) parts.push(ws.slice(i, i + 5).join(" "));
+  const span = Math.max(0.8, b - a);
+  parts.forEach((p, k) => speechSegs.push({ start: a + span * k / parts.length, end: a + span * (k + 1) / parts.length, he: p, en: "" }));
+}
+
+// ================= 3. EDIT =================
+const FONTS = [
+  { f:"Rubik", w:900, label:"רוביק" }, { f:"Heebo", w:900, label:"היבו" }, { f:"Secular One", w:400, label:"סקולר" },
+  { f:"Suez One", w:400, label:"סואץ" }, { f:"Karantina", w:700, label:"קרנטינה" }, { f:"Amatic SC", w:700, label:"אמטיק" },
+  { f:"Varela Round", w:400, label:"ורלה" }, { f:"Frank Ruhl Libre", w:700, label:"פרנק" }
+];
+const COLORS = ["#ffffff","#ffe14d","#22d3ee","#ff3b6b","#34d399","#a78bfa","#111111"];
+let style = Object.assign({ font: 0, color: "#ffffff", box: "box", size: 64, pos: "low", lang: "he" }, store("st_style") || {});
+let caps = [], capSrc = "script", duration = 0, videoUrl = "";
+
+function buildStyleUI(){
+  $("fonts").innerHTML = ""; FONTS.forEach((F, i) => { const b = document.createElement("button"); b.textContent = "אבג"; b.title = F.label;
+    b.style.fontFamily = `'${F.f}'`; b.style.fontWeight = F.w; b.classList.toggle("on", style.font === i);
+    b.onclick = () => { style.font = i; saveStyle(); buildStyleUI(); }; $("fonts").appendChild(b); });
+  $("colors").innerHTML = ""; COLORS.forEach(c => { const b = document.createElement("button"); b.style.background = c; b.setAttribute("aria-label", "צבע " + c);
+    b.classList.toggle("on", style.color === c); b.onclick = () => { style.color = c; saveStyle(); buildStyleUI(); }; $("colors").appendChild(b); });
+  for (const [seg, key, attr] of [["boxSeg","box","b"],["posSeg","pos","p"],["langSeg","lang","l"]])
+    for (const b of $(seg).querySelectorAll("button")) b.classList.toggle("on", b.dataset[attr] === style[key]);
+  $("csize").value = style.size;
+  renderPreview();
+}
+function saveStyle(){ store("st_style", style); }
+for (const [seg, key, attr] of [["boxSeg","box","b"],["posSeg","pos","p"],["langSeg","lang","l"]])
+  $(seg).addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; style[key] = b.dataset[attr]; saveStyle(); buildStyleUI(); });
+$("csize").addEventListener("input", () => { style.size = +$("csize").value; saveStyle(); renderPreview(); });
+
+function capsFromScript(){
+  const n = chunks.length, ts = Array.from({ length: n }, (_, i) => scriptTimes[i] == null ? null : scriptTimes[i]);
+  // fill gaps (chunks never reached the reading line, or an uploaded video) by spreading evenly
+  const known = ts.map((t, i) => [i, t]).filter(x => x[1] != null);
+  if (!known.length) { for (let i = 0; i < n; i++) ts[i] = duration * i / Math.max(1, n); }
+  else {
+    for (let i = 0; i < n; i++) if (ts[i] == null) {
+      const prev = known.filter(k => k[0] < i).pop(), next = known.find(k => k[0] > i);
+      const a = prev ? prev[1] : 0, ia = prev ? prev[0] : -1, b = next ? next[1] : duration, ib = next ? next[0] : n;
+      ts[i] = a + (b - a) * (i - ia) / (ib - ia);
+    }
+  }
+  if (n) ts[0] = 0;
+  return chunks.map((c, i) => ({ start: ts[i], end: i + 1 < n ? ts[i + 1] : Math.max(ts[i] + 1.5, duration), he: c, en: "" }));
+}
+function setSource(src){
+  capSrc = src;
+  for (const b of $("srcSeg").querySelectorAll("button")) b.classList.toggle("on", b.dataset.src === src);
+  if (src === "speech") {
+    caps = speechSegs.map(s => ({ ...s }));
+    $("srcNote").textContent = caps.length ? "אלה המילים שהדפדפן זיהה בדיבור. אפשר לתקן כל שורה." :
+      "לא זוהה דיבור בצילום הזה (הדפדפן לא תומך, או שהמיקרופון היה תפוס). השתמשו ב'לפי התסריט'.";
+  } else {
+    caps = capsFromScript();
+    $("srcNote").textContent = "הכתוביות לקוחות מהתסריט, מתוזמנות לפי הטלפרומפטר. אם אמרתם משהו אחר, תקנו את השורה.";
+  }
+  renderCaps(); renderPreview();
+}
+$("srcSeg").addEventListener("click", e => { const b = e.target.closest("button"); if (b) setSource(b.dataset.src); });
+
+function renderCaps(){
+  const box = $("caps"); box.textContent = "";
+  caps.sort((a, b) => a.start - b.start);
+  caps.forEach((c, i) => {
+    const row = document.createElement("div"); row.className = "capRow"; row.dataset.i = i;
+    const t = document.createElement("div"); t.className = "t"; t.textContent = fmtT(c.start); t.title = "קפוץ לנקודה";
+    t.onclick = () => { $("player").currentTime = c.start + 0.01; renderPreview(); };
+    const mid = document.createElement("div");
+    const he = document.createElement("input"); he.type = "text"; he.value = c.he; he.setAttribute("aria-label", "כתובית " + (i + 1));
+    he.oninput = () => { c.he = he.value; renderPreview(); };
+    const en = document.createElement("input"); en.type = "text"; en.className = "en"; en.value = c.en; en.placeholder = "English";
+    en.setAttribute("aria-label", "תרגום לכתובית " + (i + 1)); en.oninput = () => { c.en = en.value; renderPreview(); };
+    mid.append(he, en);
+    const x = document.createElement("button"); x.className = "x"; x.textContent = "✕"; x.setAttribute("aria-label", "מחק כתובית");
+    x.onclick = () => { const prev = caps[i - 1]; if (prev) prev.end = c.end; caps.splice(i, 1); renderCaps(); renderPreview(); };
+    row.append(t, mid, x); box.appendChild(row);
+  });
+}
+$("addCap").onclick = () => {
+  const t = $("player").currentTime, i = caps.findIndex(c => c.start > t);
+  const prev = caps[(i === -1 ? caps.length : i) - 1], next = i === -1 ? null : caps[i];
+  if (prev && prev.end > t) prev.end = t;
+  caps.push({ start: t, end: next ? next.start : Math.min(duration, t + 2), he: "טקסט חדש", en: "" });
+  renderCaps(); renderPreview();
+};
+function shiftAll(d){ for (const c of caps) { c.start = Math.max(0, c.start + d); c.end = Math.max(c.start + 0.2, c.end + d); } renderCaps(); renderPreview(); }
+$("shiftEarlier").onclick = () => shiftAll(-0.2);
+$("shiftLater").onclick = () => shiftAll(0.2);
+
+const capAt = t => caps.find(c => t >= c.start && t < c.end);
+function linesFor(c){ if (!c) return []; const l = []; if (style.lang !== "en" && c.he) l.push({ t: c.he, he: true }); if (style.lang !== "he" && c.en) l.push({ t: c.en, he: false }); return l; }
+function posY(){ return style.pos === "top" ? 0.16 : style.pos === "mid" ? 0.5 : 0.76; }
+
+function renderPreview(){
+  const p = $("capPreview"), stageH = $("stage").clientHeight || 640, k = stageH / 1920;
+  const c = capAt($("player").currentTime || 0), F = FONTS[style.font];
+  p.textContent = "";
+  for (const ln of linesFor(c)) {
+    const d = document.createElement("div");
+    const s = document.createElement("span"); s.className = "l"; s.textContent = ln.t; s.dir = ln.he ? "rtl" : "ltr";
+    const fs = (ln.he ? style.size : style.size * 0.78) * k;
+    Object.assign(s.style, { fontFamily: `'${F.f}'`, fontWeight: F.w, fontSize: fs + "px", color: style.color });
+    if (style.box === "box") s.style.background = style.color === "#111111" ? "rgba(255,255,255,.88)" : "rgba(0,0,0,.62)";
+    if (style.box === "outline") s.style.webkitTextStroke = Math.max(1, fs * 0.08) + "px " + (style.color === "#111111" ? "#fff" : "#000"), s.style.paintOrder = "stroke fill";
+    if (style.box === "shadow") s.style.textShadow = `0 ${fs*.06}px ${fs*.18}px rgba(0,0,0,.85)`;
+    d.appendChild(s); p.appendChild(d);
+  }
+  p.style.top = (posY() * 100) + "%"; p.style.transform = "translateY(-50%)";
+  const cur = caps.indexOf(c);
+  for (const r of $("caps").children) r.classList.toggle("cur", +r.dataset.i === cur);
+}
+
+function openEditor(uploaded){
+  show("editScreen");
+  if (videoUrl) URL.revokeObjectURL(videoUrl);
+  videoUrl = URL.createObjectURL(recBlob);
+  const v = $("player"); v.src = videoUrl; v.currentTime = 0;
+  $("dlLink").hidden = true; $("exNote").textContent = "";
+  v.onloadedmetadata = async () => {
+    duration = isFinite(v.duration) ? v.duration : 0;
+    if (!duration) { // webm from MediaRecorder sometimes reports Infinity until seeked
+      await new Promise(r => { v.currentTime = 1e7; v.ontimeupdate = () => { v.ontimeupdate = null; r(); }; });
+      duration = v.duration; v.currentTime = 0;
+    }
+    chunks = chunks.length ? chunks : chunkScript($("script").value);
+    setSource(speechSegs.length && uploaded ? "speech" : "script");
+    buildStyleUI();
+  };
+  v.ontimeupdate = renderPreview;
+  v.onplay = () => $("playBtn").textContent = "⏸ עצור";
+  v.onpause = () => $("playBtn").textContent = "▶ נגן";
+}
+$("playBtn").onclick = () => { const v = $("player"); v.paused ? v.play() : v.pause(); };
+$("editBack").onclick = () => { $("player").pause(); openCamera(); };
+
+// ---- translation (MyMemory free API; one request per caption)
+$("translateAll").onclick = async () => {
+  const todo = caps.filter(c => c.he && !c.en);
+  $("trErr").textContent = "";
+  if (!todo.length) { $("trErr").textContent = caps.length ? "כל הכתוביות כבר מתורגמות." : "אין כתוביות לתרגם."; return; }
+  $("translateAll").disabled = true; $("trProg").hidden = false;
+  let done = 0, failed = 0;
+  for (const c of todo) {
+    try {
+      const r = await fetch("https://api.mymemory.translated.net/get?langpair=he|en&q=" + encodeURIComponent(c.he));
+      const j = await r.json();
+      const t = j && j.responseData && j.responseData.translatedText;
+      if (t && !/MYMEMORY WARNING|QUERY LENGTH/i.test(t)) c.en = t; else failed++;
+    } catch(e){ failed++; }
+    done++; $("trProg").firstElementChild.style.width = (done / todo.length * 100) + "%";
+  }
+  $("translateAll").disabled = false; $("trProg").hidden = true;
+  if (failed) $("trErr").textContent = failed + " שורות לא תורגמו (ייתכן שהגעתם למגבלה היומית של שירות התרגום). אפשר לכתוב אותן ידנית.";
+  if (style.lang === "he") { style.lang = "both"; saveStyle(); }
+  renderCaps(); buildStyleUI();
+};
+
+// ---- export: draw video + captions on a 1080×1920 canvas and record it
+function wrapLines(ctx, text, maxW){
+  const ws = text.split(/\s+/), lines = []; let cur = "";
+  for (const w of ws) { const t = cur ? cur + " " + w : w; if (ctx.measureText(t).width > maxW && cur) { lines.push(cur); cur = w; } else cur = t; }
+  if (cur) lines.push(cur); return lines;
+}
+function drawCaption(ctx, W, H, c){
+  const F = FONTS[style.font], groups = linesFor(c).map(ln => {
+    const fs = ln.he ? style.size : style.size * 0.78;
+    ctx.font = `${F.w} ${fs}px '${F.f}'`; ctx.direction = ln.he ? "rtl" : "ltr";
+    return { ln, fs, rows: wrapLines(ctx, ln.t, W * 0.84) };
+  });
+  const total = groups.reduce((s, g) => s + g.rows.length * g.fs * 1.3, 0) + (groups.length - 1) * 10;
+  let y = H * posY() - total / 2;
+  for (const g of groups) {
+    ctx.font = `${F.w} ${g.fs}px '${F.f}'`; ctx.direction = g.ln.he ? "rtl" : "ltr"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    for (const row of g.rows) {
+      const lh = g.fs * 1.3, cy = y + lh / 2, w = ctx.measureText(row).width;
+      if (style.box === "box") {
+        ctx.fillStyle = style.color === "#111111" ? "rgba(255,255,255,.88)" : "rgba(0,0,0,.62)";
+        const px = g.fs * 0.3, r = g.fs * 0.22, x0 = W / 2 - w / 2 - px, y0 = cy - lh / 2 + 2, bw = w + px * 2, bh = lh - 4;
+        ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x0, y0, bw, bh, r) : ctx.rect(x0, y0, bw, bh); ctx.fill();
+      }
+      if (style.box === "shadow") { ctx.shadowColor = "rgba(0,0,0,.85)"; ctx.shadowBlur = g.fs * 0.18; ctx.shadowOffsetY = g.fs * 0.06; }
+      if (style.box === "outline") { ctx.lineJoin = "round"; ctx.lineWidth = g.fs * 0.16; ctx.strokeStyle = style.color === "#111111" ? "#fff" : "#000"; ctx.strokeText(row, W / 2, cy); }
+      ctx.fillStyle = style.color; ctx.fillText(row, W / 2, cy);
+      ctx.shadowColor = "transparent"; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+      y += lh;
+    }
+    y += 10;
+  }
+}
+$("exportBtn").onclick = async () => {
+  const W = 1080, H = 1920, F = FONTS[style.font];
+  $("exportBtn").disabled = true; $("exProg").hidden = false; $("dlLink").hidden = true;
+  $("exNote").textContent = "מכין… השאירו את המסך פתוח עד הסוף.";
+  try { await document.fonts.load(`${F.w} 64px '${F.f}'`, "אבג abc"); } catch(e){}
+  const cv = document.createElement("canvas"); cv.width = W; cv.height = H; const ctx = cv.getContext("2d");
+  const v = document.createElement("video"); v.src = videoUrl; v.playsInline = true; v.crossOrigin = "anonymous";
+  await new Promise(r => { v.onloadeddata = r; v.load(); });
+  const ac = new (window.AudioContext || window.webkitAudioContext)(); const dest = ac.createMediaStreamDestination();
+  try { ac.createMediaElementSource(v).connect(dest); } catch(e){}
+  const out = cv.captureStream(30); for (const t of dest.stream.getAudioTracks()) out.addTrack(t);
+  const mime = pickMime(), mr = new MediaRecorder(out, mime ? { mimeType: mime, videoBitsPerSecond: 8e6 } : undefined), parts = [];
+  mr.ondataavailable = e => { if (e.data.size) parts.push(e.data); };
+  const finished = new Promise(r => mr.onstop = r);
+  let stopDraw = false;
+  const draw = () => {
+    if (stopDraw) return;
+    const vw = v.videoWidth || W, vh = v.videoHeight || H, s = Math.max(W / vw, H / vh);
+    ctx.fillStyle = "#000"; ctx.fillRect(0, 0, W, H);
+    ctx.drawImage(v, (W - vw * s) / 2, (H - vh * s) / 2, vw * s, vh * s);
+    drawCaption(ctx, W, H, capAt(v.currentTime));
+    $("exProg").firstElementChild.style.width = (duration ? v.currentTime / duration * 100 : 0) + "%";
+    (v.requestVideoFrameCallback ? v.requestVideoFrameCallback(draw) : requestAnimationFrame(draw));
+  };
+  mr.start(1000); await ac.resume().catch(() => {}); v.currentTime = 0;
+  await v.play(); draw();
+  await new Promise(r => v.onended = r);
+  stopDraw = true; mr.stop(); await finished; ac.close().catch(() => {});
+  const blob = new Blob(parts, { type: mr.mimeType || mime || "video/webm" }), ext = /mp4/.test(blob.type) ? "mp4" : "webm";
+  const url = URL.createObjectURL(blob), a = $("dlLink");
+  a.href = url; a.download = "video-captions-" + new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-") + "." + ext;
+  a.textContent = "הסרטון מוכן. אם ההורדה לא התחילה, לחצו כאן."; a.hidden = false;
+  $("exNote").textContent = ext === "mp4" ? "נשמר כ-MP4, מוכן להעלאה לטיקטוק." :
+    "נשמר כ-WebM (הדפדפן הזה לא יודע לשמור MP4). טיקטוק באתר מקבל WebM; באפליקציה ייתכן שתצטרכו להמיר.";
+  if (navigator.canShare && navigator.canShare({ files: [new File([blob], a.download, { type: blob.type })] })) {
+    const sh = document.createElement("button"); sh.textContent = "📤 שתף / שמור לגלריה"; sh.className = "primary";
+    sh.onclick = () => navigator.share({ files: [new File([blob], a.download, { type: blob.type })] }).catch(() => {});
+    $("exNote").after(sh);
+  }
+  a.click();
+  $("exportBtn").disabled = false; $("exProg").hidden = true;
+};
+</script>
+</body>
+</html>

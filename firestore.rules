@@ -31,5 +31,45 @@ service cloud.firestore {
     match /private/{uid} {
       allow read, write: if request.auth != null && request.auth.uid == uid;
     }
+
+    // ---- Messages ----
+    // chats/{uidA_uidB}: only the two members can see or touch it.
+    function otherIn(m) { return m[0] == request.auth.uid ? m[1] : m[0]; }
+    // true if `other` has blocked the caller's current number
+    function blockedBy(other) {
+      return exists(/databases/$(database)/documents/private/$(other))
+        && get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.num
+           in get(/databases/$(database)/documents/private/$(other)).data.get('blocked', []);
+    }
+    match /chats/{chatId} {
+      allow get: if request.auth != null && (resource == null || request.auth.uid in resource.data.members);
+      allow list: if request.auth != null && request.auth.uid in resource.data.members;
+      allow create: if request.auth != null
+        && request.resource.data.keys().hasOnly(['members','nums','last','read','createdAt','updatedAt'])
+        && request.resource.data.members is list && request.resource.data.members.size() == 2
+        && request.auth.uid in request.resource.data.members
+        && chatId == request.resource.data.members[0] + '_' + request.resource.data.members[1]
+        && exists(/databases/$(database)/documents/profiles/$(otherIn(request.resource.data.members)))
+        && request.resource.data.last == null;
+      allow update: if request.auth != null && request.auth.uid in resource.data.members
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['last','read','updatedAt'])
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['last'])
+            || (request.resource.data.last.from == request.auth.uid && !blockedBy(otherIn(resource.data.members))));
+      allow delete: if false;
+
+      match /messages/{msgId} {
+        function chat() { return get(/databases/$(database)/documents/chats/$(chatId)).data; }
+        allow read: if request.auth != null && request.auth.uid in chat().members;
+        allow create: if request.auth != null && request.auth.uid in chat().members
+          && request.resource.data.keys().hasOnly(['from','text','photo','at'])
+          && request.resource.data.from == request.auth.uid
+          && request.resource.data.at == request.time
+          && request.resource.data.text is string && request.resource.data.text.size() <= 2000
+          && request.resource.data.photo is string && request.resource.data.photo.size() <= 300000
+          && (request.resource.data.text.size() > 0 || request.resource.data.photo.size() > 0)
+          && !blockedBy(otherIn(chat().members));
+        allow update, delete: if false;
+      }
+    }
   }
 }

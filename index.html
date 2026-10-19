@@ -63,6 +63,31 @@ input{font:inherit;font-family:var(--mono);font-size:26px;letter-spacing:.12em;t
 .contact .nu{font-family:var(--mono);font-size:13px;color:var(--muted);direction:ltr}
 .contact button{padding:6px 10px}
 .small{font-size:13px;padding:6px 10px}
+.tabs{display:flex;gap:6px}
+.tabs button{flex:1;font-weight:500}
+.tabs button.on{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
+.badge{display:inline-block;min-width:20px;padding:0 6px;border-radius:999px;background:var(--danger);color:#fff;font-size:12px;margin-inline-start:6px;line-height:20px}
+.chats{display:flex;flex-direction:column;gap:6px}
+.chatrow{display:flex;flex-direction:column;align-items:stretch;text-align:right;gap:2px;width:100%}
+.chatrow .top{display:flex;justify-content:space-between;gap:8px}
+.chatrow .nm{font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chatrow .tm{font-size:12px;color:var(--muted);white-space:nowrap}
+.chatrow .lm{font-size:14px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chatrow.unread{border-color:var(--accent)}
+.chatrow.unread .lm{color:var(--fg);font-weight:500}
+.chathead{display:flex;align-items:center;gap:8px}
+.chathead .t{flex:1;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.msgs{height:52vh;min-height:260px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;padding:8px;background:var(--bg);border-radius:12px;border:1px solid var(--line)}
+.bub{max-width:80%;padding:8px 12px;border-radius:14px;background:var(--surface);border:1px solid var(--line);align-self:flex-start;white-space:pre-wrap;overflow-wrap:anywhere;font-size:15px;line-height:1.4}
+.bub.me{align-self:flex-end;background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+.bub img{display:block;max-width:100%;max-height:260px;border-radius:10px;cursor:zoom-in;margin-bottom:4px}
+.bub .tm{font-size:11px;opacity:.7;margin-top:2px;text-align:left}
+.composer{display:flex;gap:6px;align-items:flex-end}
+.composer textarea{flex:1;font:inherit;font-size:16px;min-height:44px;max-height:120px;resize:none;padding:10px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--fg)}
+.photoprev{position:relative;align-self:flex-start}
+.photoprev img{max-height:120px;border-radius:10px;border:1px solid var(--line)}
+#lightbox{position:fixed;inset:0;background:rgba(0,0,0,.88);display:flex;align-items:center;justify-content:center;z-index:50;padding:16px;cursor:zoom-out}
+#lightbox img{max-width:100%;max-height:100%}
 #pickBox input{font-size:22px}
 </style>
 </head>
@@ -72,6 +97,11 @@ input{font:inherit;font-family:var(--mono);font-size:26px;letter-spacing:.12em;t
     <div class="brand">kassa<span>wmar</span></div>
     <div class="status"><span class="dot" id="dot"></span><span id="statusText">מתחבר…</span></div>
   </header>
+
+  <nav class="tabs" id="mainTabs" hidden>
+    <button data-tab="calls" class="on">שיחות</button>
+    <button data-tab="msgs">הודעות<span class="badge" id="unreadBadge" hidden></span></button>
+  </nav>
 
   <section class="card" id="loginCard" hidden>
     <div class="label">ברוך הבא ל־kassawmar</div>
@@ -139,6 +169,38 @@ input{font:inherit;font-family:var(--mono);font-size:26px;letter-spacing:.12em;t
     </div>
   </section>
 
+  <section class="card" id="msgListCard" hidden>
+    <div class="label">הודעה חדשה</div>
+    <div class="row" style="align-items:center">
+      <input id="newChatInput" class="grow" inputmode="numeric" maxlength="12" autocomplete="off" placeholder="099-0000000" style="font-size:20px">
+      <button class="primary" id="newChatBtn">פתח</button>
+    </div>
+    <div class="toast" id="newChatMsg" role="status"></div>
+    <div class="label">השיחות שלך</div>
+    <div class="chats" id="chatList"></div>
+    <div class="note" id="noChats">עדיין אין הודעות. הקלד מספר 099 למעלה, או לחץ 💬 ליד איש קשר.</div>
+  </section>
+
+  <section class="card" id="chatCard" hidden>
+    <div class="chathead">
+      <button class="small" id="chatBack" aria-label="חזרה לרשימת השיחות">→ חזרה</button>
+      <div class="t" id="chatTitle"></div>
+      <button class="small primary" id="chatCall">📞 התקשר</button>
+    </div>
+    <div class="msgs" id="msgs" aria-live="polite"></div>
+    <div class="photoprev" id="photoPrevWrap" hidden>
+      <img id="photoPrev" alt="התמונה שתישלח">
+      <button class="small" id="photoClear">הסר תמונה</button>
+    </div>
+    <div class="composer">
+      <button id="photoBtn" aria-label="צרף תמונה או צלם" title="צרף תמונה או צלם">📷</button>
+      <input type="file" id="photoInput" accept="image/*" hidden>
+      <textarea id="msgInput" rows="1" maxlength="2000" placeholder="כתוב הודעה…"></textarea>
+      <button class="primary" id="sendBtn">שלח</button>
+    </div>
+    <div class="toast" id="chatErr" role="status"></div>
+  </section>
+
   <section class="card callscreen" id="incomingCard" hidden>
     <div class="label">שיחה נכנסת</div>
     <div class="who" id="incomingWho"></div>
@@ -169,8 +231,9 @@ input{font:inherit;font-family:var(--mono);font-size:26px;letter-spacing:.12em;t
     </div>
   </section>
 
-  <p class="note">המספר רשום על החשבון שלך ונשאר קבוע. השיחה עוברת ישירות בין שני המחשבים (או הטלפונים), מוצפנת בהצפנת DTLS‑SRTP. השרת רק עוזר לשני הצדדים למצוא זה את זה ולא שומע את השיחה.</p>
+  <p class="note">המספר רשום על החשבון שלך ונשאר קבוע. הודעות ותמונות עוברות בחיבור מוצפן ונשמרות מוצפנות בשרת, ורק שני הצדדים בשיחה יכולים לקרוא אותן. השיחה הקולית עוברת ישירות בין שני המחשבים (או הטלפונים), מוצפנת בהצפנת DTLS‑SRTP. השרת רק עוזר לשני הצדדים למצוא זה את זה ולא שומע את השיחה.</p>
   <audio id="remoteAudio" autoplay></audio>
+  <div id="lightbox" hidden><img id="lightboxImg" alt="תמונה בגודל מלא"></div>
 </div>
 
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
@@ -363,12 +426,16 @@ $("micBtn").onclick = async () => { try{ await getMic(); }catch(e){ micFail(e); 
 if (inApp) micFail({ name: "InApp" });
 
 function show(mode){
-  const loggedIn = !!user && !!myNum;
+  const loggedIn = !!user && !!myNum, idle = mode === "idle" && loggedIn;
+  const calls = idle && curTab === "calls", msgs = idle && curTab === "msgs";
   $("loginCard").hidden = mode !== "login";
-  $("idCard").hidden = !(mode === "idle" && loggedIn);
-  $("dialCard").hidden = !(mode === "idle" && loggedIn);
-  $("micCard").hidden = !(mode === "idle" && loggedIn);
-  $("contactsCard").hidden = !(mode === "idle" && loggedIn);
+  $("mainTabs").hidden = !idle;
+  $("idCard").hidden = !calls;
+  $("dialCard").hidden = !calls;
+  $("micCard").hidden = !calls;
+  $("contactsCard").hidden = !calls;
+  $("msgListCard").hidden = !(msgs && !openChat);
+  $("chatCard").hidden = !(msgs && openChat);
   $("incomingCard").hidden = mode !== "incoming";
   $("callCard").hidden = mode !== "call";
 }
@@ -585,6 +652,7 @@ function renderContacts(){
   contacts.forEach((c, i) => {
     box.appendChild(mkRow(c.name, c.n, [
       btn("חייג", "primary", "", () => { $("dialInput").value = fmt(c.n); $("callBtn").click(); }),
+      btn("💬", "", "הודעה", () => startChatByNum(c.n)),
       btn("⛔", "", "חסום", () => { if (confirm("לחסום את " + c.name + "? הוא לא יוכל להתקשר אליך.")) blockNum(c.n); }),
       btn("✕", "", "מחק", () => { if (confirm("למחוק את " + c.name + "?")) { contacts.splice(i,1); savePrivate(); renderContacts(); } })
     ]));
@@ -647,6 +715,209 @@ $("logoutBtn").onclick = async () => {
   await fb.A.signOut(fb.auth);
 };
 
+
+// ---------------- Messages (chat + photos) ----------------
+// chats/{uidA_uidB}: { members:[a,b] sorted, nums:{uid:num}, last:{from,text,photo,at}, read:{uid:ts}, createdAt, updatedAt }
+// chats/{id}/messages/{msgId}: { from, text, photo (small jpeg data URL), at }
+let curTab = "calls", openChat = null, unsubChats = null, unsubMsgs = null, chats = [], chatPhoto = null, chatsLoaded = false;
+const chatIdFor = (a, b) => [a, b].sort().join("_");
+const tsOf = t => t && t.toMillis ? t.toMillis() : Date.now();
+const otherOf = c => c.members.find(m => m !== user.uid);
+const chatNum = c => (c.nums && c.nums[otherOf(c)]) || "";
+const chatLabel = c => chatNum(c) ? label(chatNum(c)) : "משתמש";
+function isUnread(c){
+  const l = c.last; if (!l || l.from === user.uid) return false;
+  const r = c.read && c.read[user.uid];
+  return !r || tsOf(r) < tsOf(l.at);
+}
+function hhmm(t){ const d = t && t.toDate ? t.toDate() : new Date(); return d.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" }); }
+function dayOrTime(t){
+  const d = t && t.toDate ? t.toDate() : new Date();
+  return d.toDateString() === new Date().toDateString() ? hhmm(t) : d.toLocaleDateString("he-IL", { day: "numeric", month: "numeric" });
+}
+
+function setTab(t){
+  curTab = t;
+  for (const b of $("mainTabs").querySelectorAll("button")) b.classList.toggle("on", b.dataset.tab === t);
+  if (!currentCall && !pendingCall) show("idle");
+}
+$("mainTabs").addEventListener("click", e => { const b = e.target.closest("button"); if (b) setTab(b.dataset.tab); });
+
+function stopMessaging(){
+  if (unsubChats) { unsubChats(); unsubChats = null; }
+  if (unsubMsgs) { unsubMsgs(); unsubMsgs = null; }
+  chats = []; openChat = null; chatsLoaded = false; curTab = "calls";
+}
+
+function watchChats(){
+  const { F, db } = fb;
+  unsubChats = F.onSnapshot(F.query(F.collection(db, "chats"), F.where("members", "array-contains", user.uid)), snap => {
+    chats = snap.docs.map(d => ({ id: d.id, ...d.data({ serverTimestamps: "estimate" }) }))
+      .sort((a, b) => tsOf(b.updatedAt) - tsOf(a.updatedAt));
+    if (chatsLoaded) {
+      for (const ch of snap.docChanges()) {
+        const c = chats.find(x => x.id === ch.doc.id);
+        if (c && isUnread(c) && !(curTab === "msgs" && openChat === c.id)) {
+          msgBeep(); toast("הודעה חדשה מ־" + chatLabel(c));
+        }
+      }
+    }
+    chatsLoaded = true;
+    renderChats();
+  }, () => { $("noChats").textContent = "לא הצלחתי לטעון הודעות."; $("noChats").hidden = false; });
+}
+
+function renderChats(){
+  const box = $("chatList"); box.textContent = "";
+  $("noChats").hidden = chats.length > 0;
+  let unread = 0;
+  for (const c of chats) {
+    const u = isUnread(c); if (u) unread++;
+    const row = document.createElement("button"); row.className = "chatrow" + (u ? " unread" : "");
+    const top = document.createElement("div"); top.className = "top";
+    const nm = document.createElement("span"); nm.className = "nm"; nm.textContent = chatLabel(c);
+    const tm = document.createElement("span"); tm.className = "tm"; tm.textContent = c.last ? dayOrTime(c.last.at) : "";
+    top.append(nm, tm);
+    const lm = document.createElement("div"); lm.className = "lm";
+    lm.textContent = c.last ? (c.last.from === user.uid ? "אתה: " : "") + (c.last.text || (c.last.photo ? "📷 תמונה" : "")) : "שיחה חדשה";
+    row.append(top, lm);
+    row.onclick = () => openChatWith(c.id);
+    box.appendChild(row);
+  }
+  $("unreadBadge").hidden = !unread; $("unreadBadge").textContent = unread;
+  document.title = (unread ? "(" + unread + ") " : "") + "kassawmar";
+  if (openChat) { const c = chats.find(x => x.id === openChat); if (c) $("chatTitle").textContent = chatLabel(c); }
+}
+
+async function startChatByNum(num){
+  $("newChatMsg").textContent = "";
+  if (!num) { $("newChatMsg").textContent = "המספר צריך להיות 099 ועוד 7 ספרות."; return; }
+  if (num === myNum) { $("newChatMsg").textContent = "זה המספר שלך."; return; }
+  const { F, db } = fb;
+  try {
+    const ns = await F.getDoc(F.doc(db, "numbers", num));
+    if (!ns.exists()) { $("newChatMsg").textContent = "המספר " + fmt(num) + " לא קיים."; return; }
+    const other = ns.data().uid, id = chatIdFor(user.uid, other), ref = F.doc(db, "chats", id);
+    const cs = await F.getDoc(ref);
+    if (!cs.exists()) {
+      await F.setDoc(ref, { members: [user.uid, other].sort(), nums: { [user.uid]: myNum, [other]: num },
+        last: null, read: {}, createdAt: F.serverTimestamp(), updatedAt: F.serverTimestamp() });
+    }
+    $("newChatInput").value = "";
+    setTab("msgs"); openChatWith(id);
+  } catch(e){ $("newChatMsg").textContent = "לא הצלחתי לפתוח שיחה. בדוק חיבור לאינטרנט."; }
+}
+$("newChatBtn").onclick = () => startChatByNum(normNum($("newChatInput").value));
+$("newChatInput").addEventListener("keydown", e => { if (e.key === "Enter") $("newChatBtn").click(); });
+
+function openChatWith(id){
+  openChat = id; clearPhoto(); $("chatErr").textContent = "";
+  const c = chats.find(x => x.id === id);
+  $("chatTitle").textContent = c ? chatLabel(c) : "";
+  $("msgs").textContent = "";
+  show("idle");
+  const { F, db } = fb;
+  if (unsubMsgs) unsubMsgs();
+  unsubMsgs = F.onSnapshot(F.query(F.collection(db, "chats", id, "messages"), F.orderBy("at"), F.limitToLast(100)), snap => {
+    renderMsgs(snap.docs.map(d => ({ id: d.id, ...d.data({ serverTimestamps: "estimate" }) })));
+    markRead();
+  }, () => { $("chatErr").textContent = "לא הצלחתי לטעון את ההודעות."; });
+  setTimeout(() => $("msgInput").focus(), 50);
+}
+$("chatBack").onclick = () => { if (unsubMsgs) { unsubMsgs(); unsubMsgs = null; } openChat = null; show("idle"); };
+$("chatCall").onclick = () => {
+  const c = chats.find(x => x.id === openChat); if (!c) return;
+  $("dialInput").value = fmt(chatNum(c)); setTab("calls"); $("callBtn").click();
+};
+
+function renderMsgs(list){
+  const box = $("msgs"), atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
+  box.textContent = "";
+  if (!list.length) { const p = document.createElement("div"); p.className = "note"; p.style.textAlign = "center"; p.textContent = "אין עדיין הודעות. כתוב משהו!"; box.appendChild(p); }
+  for (const m of list) {
+    const b = document.createElement("div"); b.className = "bub" + (m.from === user.uid ? " me" : "");
+    if (m.photo && /^data:image\/jpeg;base64,/.test(m.photo)) {
+      const img = document.createElement("img"); img.src = m.photo; img.alt = "תמונה"; img.loading = "lazy";
+      img.onclick = () => { $("lightboxImg").src = m.photo; $("lightbox").hidden = false; };
+      b.appendChild(img);
+    }
+    if (m.text) { const t = document.createElement("div"); t.textContent = m.text; b.appendChild(t); }
+    const tm = document.createElement("div"); tm.className = "tm"; tm.textContent = hhmm(m.at); b.appendChild(tm);
+    box.appendChild(b);
+  }
+  if (atBottom || list.length && list[list.length - 1].from === user.uid) box.scrollTop = box.scrollHeight;
+}
+$("lightbox").onclick = () => { $("lightbox").hidden = true; $("lightboxImg").src = ""; };
+
+function markRead(){
+  const c = chats.find(x => x.id === openChat);
+  if (!c || !isUnread(c) || document.hidden) return;
+  fb.F.updateDoc(fb.F.doc(fb.db, "chats", c.id), { ["read." + user.uid]: fb.F.serverTimestamp() }).catch(() => {});
+}
+document.addEventListener("visibilitychange", () => { if (!document.hidden && openChat) markRead(); });
+
+// photo: shrink to ~180KB so it fits in the free plan without file storage
+async function compressImage(file, maxBytes = 180000){
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
+    let side = 1280, q = 0.75, out = "";
+    for (let i = 0; i < 9; i++) {
+      const s = Math.min(1, side / Math.max(img.width, img.height));
+      const cv = document.createElement("canvas"); cv.width = Math.round(img.width * s); cv.height = Math.round(img.height * s);
+      cv.getContext("2d").drawImage(img, 0, 0, cv.width, cv.height);
+      out = cv.toDataURL("image/jpeg", q);
+      if (out.length * 0.75 <= maxBytes) return out;
+      if (q > 0.5) q -= 0.1; else side = Math.round(side * 0.8);
+    }
+    return null;
+  } finally { URL.revokeObjectURL(url); }
+}
+function clearPhoto(){ chatPhoto = null; $("photoInput").value = ""; $("photoPrevWrap").hidden = true; $("photoPrev").src = ""; }
+$("photoBtn").onclick = () => $("photoInput").click();
+$("photoInput").onchange = async () => {
+  const f = $("photoInput").files[0]; if (!f) return;
+  $("chatErr").textContent = "";
+  try {
+    chatPhoto = await compressImage(f);
+    if (!chatPhoto) { $("chatErr").textContent = "התמונה גדולה מדי. נסה תמונה אחרת."; return; }
+    $("photoPrev").src = chatPhoto; $("photoPrevWrap").hidden = false;
+  } catch(e){ $("chatErr").textContent = "לא הצלחתי לקרוא את התמונה."; }
+};
+$("photoClear").onclick = clearPhoto;
+
+async function sendMsg(){
+  const text = $("msgInput").value.trim().slice(0, 2000), photo = chatPhoto || "";
+  if ((!text && !photo) || !openChat) return;
+  const { F, db } = fb;
+  $("sendBtn").disabled = true; $("chatErr").textContent = "";
+  try {
+    const b = F.writeBatch(db);
+    b.set(F.doc(F.collection(db, "chats", openChat, "messages")), { from: user.uid, text, photo, at: F.serverTimestamp() });
+    b.update(F.doc(db, "chats", openChat), {
+      last: { from: user.uid, text: text.slice(0, 80), photo: !!photo, at: F.serverTimestamp() },
+      updatedAt: F.serverTimestamp(), ["read." + user.uid]: F.serverTimestamp() });
+    $("msgInput").value = ""; clearPhoto(); autoGrow();
+    await b.commit();
+  } catch(e){
+    $("chatErr").textContent = e && e.code === "permission-denied" ? "ההודעה לא נשלחה. ייתכן שהנמען חסם אותך." : "ההודעה לא נשלחה. בדוק חיבור לאינטרנט.";
+  } finally { $("sendBtn").disabled = false; $("msgInput").focus(); }
+}
+$("sendBtn").onclick = sendMsg;
+$("msgInput").addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey && !/Android|iPhone|iPad/i.test(navigator.userAgent)) { e.preventDefault(); sendMsg(); } });
+function autoGrow(){ const t = $("msgInput"); t.style.height = "auto"; t.style.height = Math.min(120, t.scrollHeight) + "px"; }
+$("msgInput").addEventListener("input", autoGrow);
+
+let beepCtx;
+function msgBeep(){
+  try {
+    beepCtx = beepCtx || new (window.AudioContext || window.webkitAudioContext)();
+    const o = beepCtx.createOscillator(), g = beepCtx.createGain();
+    o.frequency.value = 880; g.gain.value = .05; o.connect(g).connect(beepCtx.destination);
+    o.start(); o.stop(beepCtx.currentTime + .15);
+  } catch(e){}
+}
+
 // ---------------- startup ----------------
 (async () => {
   if (typeof Peer === "undefined") { setStatus("אין חיבור לאינטרנט"); return; }
@@ -654,6 +925,7 @@ $("logoutBtn").onclick = async () => {
   try { await loadFirebase(); } catch(e){ setStatus("אין חיבור לאינטרנט"); return; }
   try { await fb.A.getRedirectResult(fb.auth); } catch(e){}
   fb.A.onAuthStateChanged(fb.auth, async u => {
+    stopMessaging();
     user = u; myNum = null;
     if (!u) { setStatus("לא מחובר"); show("login"); return; }
     setStatus("מכין את המספר שלך…");
@@ -671,6 +943,7 @@ $("logoutBtn").onclick = async () => {
     await loadPrivate();
     show("idle");
     startPeer();
+    watchChats();
   });
 })();
 </script>

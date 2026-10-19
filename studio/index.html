@@ -101,8 +101,8 @@ textarea,input[type=text]{width:100%;border:1px solid var(--line);background:var
 #edit{position:fixed;inset:0;display:flex;flex-direction:column;background:var(--bg)}
 .etop{display:flex;align-items:center;gap:8px;padding:calc(8px + env(safe-area-inset-top)) 12px 8px}
 .etop h2{margin:0;font-size:16px;flex:1;text-align:center}
-.stageWrap{flex:none;height:min(52dvh,calc((100vw - 24px) * 16 / 9));display:flex;justify-content:center}
-.stage{position:relative;height:100%;aspect-ratio:9/16;background:#000;border-radius:16px;overflow:hidden}
+.stageWrap{flex:none;height:52dvh;display:flex;justify-content:center;align-items:center;padding:0 12px;min-height:0}
+.stage{position:relative;width:200px;height:356px;flex:none;background:#000;border-radius:16px;overflow:hidden}
 .stage video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .stage canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
 .playOv{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:64px;height:64px;border-radius:50%;background:rgba(0,0,0,.5);display:grid;place-items:center;font-size:26px;pointer-events:none}
@@ -144,6 +144,22 @@ textarea,input[type=text]{width:100%;border:1px solid var(--line);background:var
 .exOv{position:fixed;inset:0;z-index:60;background:rgba(8,8,12,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:30px;text-align:center}
 .exOv .pct{font-size:46px;font-weight:900}
 .exOv .prog{width:min(320px,80vw)}
+/* phone held sideways */
+@media (orientation:landscape) and (max-height:620px){
+  .prompter{left:230px}
+  .prompter[data-h=s]{height:45%} .prompter[data-h=m]{height:60%} .prompter[data-h=l]{height:80%}
+  .rbottom{right:auto;top:0;width:230px;justify-content:center;background:linear-gradient(to left,rgba(0,0,0,0),rgba(0,0,0,.8) 35%);padding:12px}
+  .recRow{grid-template-columns:1fr;justify-items:center}
+  .side{inset-inline-start:auto;left:240px}
+  .timer{bottom:auto;top:12px;left:calc(50% + 115px)}
+  .rtop{inset-inline-end:240px}
+  #edit{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);grid-template-rows:auto minmax(0,1fr) auto auto;column-gap:6px}
+  .etop{grid-column:1;grid-row:1}
+  .stageWrap{grid-column:1;grid-row:2;height:auto}
+  .ctrl{grid-column:1;grid-row:3} .tl{grid-column:1;grid-row:4;margin-bottom:10px}
+  .tabs{grid-column:2;grid-row:1}
+  .panel{grid-column:2;grid-row:2/5}
+}
 </style>
 </head>
 <body>
@@ -293,10 +309,13 @@ textarea,input[type=text]{width:100%;border:1px solid var(--line);background:var
   <div class="panel" id="p-save" hidden>
     <div class="card">
       <h2>שמירת הסרטון עם הכתוביות</h2>
-      <div class="small mut">הסרטון נשמר בגודל 1080×1920 (9:16, מתאים לטיקטוק וליוטיוב שורטס), עם הכתוביות צרובות עליו. השמירה לוקחת בערך כמו אורך הסרטון, כי הסרטון מתנגן תוך כדי.</div>
-      <div class="lbl">תצוגת הסרטון</div>
+      <div class="small mut">הסרטון נשמר באיכות 1080p עם הכתוביות צרובות עליו: לאורך (1080×1920) לטיקטוק, או לרוחב (1920×1080) ליוטיוב. "אוטומטי" בוחר לפי איך שהחזקתם את הטלפון. השמירה לוקחת בערך כמו אורך הסרטון, כי הסרטון מתנגן תוך כדי.</div>
+      <div class="lbl">צורת הסרטון</div>
+      <div class="seg" id="segFmt"><button data-v="auto">אוטומטי</button><button data-v="port">לאורך 9:16 (טיקטוק)</button><button data-v="land">לרוחב 16:9 (יוטיוב)</button></div>
+      <div class="lbl">כשהצילום לא באותה צורה</div>
       <div class="seg" id="segFit2"><button data-v="cover">ממלא מסך</button><button data-v="contain">כל התמונה</button></div>
       <button class="primary big" id="exportBtn">⬇ שמור סרטון</button>
+      <button id="saveOrig">שמור את הצילום המקורי בלי כתוביות (איכות מקורית)</button>
     </div>
     <div id="result" class="card" hidden>
       <h2>✅ הסרטון מוכן</h2>
@@ -353,7 +372,7 @@ function segInit(id, get, set){
 }
 
 // settings
-const S = Object.assign({ speed: 130, psize: 34, ph: "m", cd: 3, quality: "1080", fit: "cover", mirror: true, grid: false }, LS.get("st2_set", {}));
+const S = Object.assign({ fmt: "auto", speed: 130, psize: 34, ph: "m", cd: 3, quality: "1080", fit: "cover", mirror: true, grid: false }, LS.get("st2_set", {}));
 const saveS = () => LS.set("st2_set", S);
 
 // ================= HOME =================
@@ -407,7 +426,7 @@ async function openCamera(){
   const audio = { echoCancellation: true, noiseSuppression: true, autoGainControl: true };
   try {
     // ask for a landscape-style resolution: phones rotate it to portrait themselves and keep full sensor quality
-    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: facing, width: { ideal: w }, height: { ideal: h }, frameRate: { ideal: 30 } }, audio });
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: facing, width: { ideal: w }, height: { ideal: h }, frameRate: { ideal: 30 }, resizeMode: { ideal: "none" } }, audio });
   } catch(e) {
     try { stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: facing }, audio: true }); }
     catch(e2) {
@@ -590,6 +609,20 @@ const PRESETS = [
   { n: "צהוב", s: { box: "outline", color: "#ffe14d", karaoke: false, anim: true, font: 3 } },
   { n: "נקי", s: { box: "shadow", color: "#ffffff", karaoke: false, anim: false, font: 6 } }
 ];
+let FMT = { W: 1080, H: 1920 };
+function updFmt(){
+  const v = $("player"), land = S.fmt === "land" || (S.fmt !== "port" && v.videoWidth > v.videoHeight);
+  FMT = land ? { W: 1920, H: 1080 } : { W: 1080, H: 1920 };
+  fitStage();
+}
+function fitStage(){
+  const wrap = document.querySelector(".stageWrap"), st = $("stage");
+  const aw = wrap.clientWidth - 24, ah = wrap.clientHeight; if (aw <= 0 || ah <= 0) return;
+  const k = Math.min(aw / FMT.W, ah / FMT.H);
+  st.style.width = Math.floor(FMT.W * k) + "px"; st.style.height = Math.floor(FMT.H * k) + "px";
+}
+window.addEventListener("resize", () => setTimeout(fitStage, 50));
+if (window.ResizeObserver) new ResizeObserver(() => fitStage()).observe(document.querySelector(".stageWrap"));
 let ST = Object.assign({ font: 0, color: "#ffffff", hl: "#ffe14d", box: "outline", karaoke: true, anim: true, size: 88, lang: "he", x: 0.5, y: 0.72 }, LS.get("st2_style", {}));
 const saveST = () => LS.set("st2_style", ST);
 let caps = [], capSrc = "script", duration = 0, videoUrl = "", edited = false, sel = -1, editLoopOn = false;
@@ -634,12 +667,12 @@ function openEditor(fromRec){
   $("result").hidden = true; $("backToEdit").hidden = false;
   if (!chunks.length) chunks = chunkScript($("script").value);
   setSource(chunks.length || !speechSegs.length ? "script" : "speech");
-  setTab("caps"); paintStyleUI(); preloadFonts(); updDur(); startEditLoop();
+  setTab("caps"); paintStyleUI(); updFmt(); preloadFonts(); updDur(); startEditLoop();
   $("hint").hidden = false; setTimeout(() => $("hint").hidden = true, 5000);
 }
 // MediaRecorder webm files often report duration = Infinity until you seek to the end
 $("player").addEventListener("loadedmetadata", () => {
-  const v = $("player");
+  const v = $("player"); updFmt();
   if (isFinite(v.duration) && v.duration > 0) return setDuration(v.duration);
   const onT = () => { v.removeEventListener("timeupdate", onT); if (isFinite(v.duration)) setDuration(v.duration); v.currentTime = 0; };
   v.addEventListener("timeupdate", onT); v.currentTime = 1e7;
@@ -713,7 +746,7 @@ function drawCaption(ctx, t, W, H){
     const sp = ctx.measureText(" ").width * 1.1, rows = []; let cur = [], cw = 0;
     for (const w of words(ln.text)) {
       const ww = ctx.measureText(w).width, nw = cur.length ? cw + sp + ww : ww;
-      if (nw > W * 0.86 && cur.length) { rows.push({ ws: cur, w: cw }); cur = [{ t: w, w: ww }]; cw = ww; } else { cur.push({ t: w, w: ww }); cw = nw; }
+      if (nw > W * (W > H ? 0.7 : 0.84) && cur.length) { rows.push({ ws: cur, w: cw }); cur = [{ t: w, w: ww }]; cw = ww; } else { cur.push({ t: w, w: ww }); cw = nw; }
     }
     if (cur.length) rows.push({ ws: cur, w: cw });
     groups.push({ ln, fs, rows, sp, k: -1 });
@@ -729,7 +762,7 @@ function drawCaption(ctx, t, W, H){
   const maxW = Math.max(...groups.flatMap(g => g.rows.map(r => r.w)));
   let sc = 1, al = 1;
   if (ST.anim) { const a = clamp((t - c.start) / 0.22, 0, 1); sc = 0.7 + 0.3 * easeOutBack(a); al = clamp(a * 2, 0, 1); }
-  const cx = ST.x * W, cy = clamp(ST.y * H, total / 2 + 40, H - total / 2 - 40);
+  const half = (maxW / 2 + ST.size * 0.4) * sc, cx = clamp(ST.x * W, Math.min(W / 2, half + 16), Math.max(W / 2, W - half - 16)), cy = clamp(ST.y * H, total / 2 + 40, H - total / 2 - 40);
   ctx.save(); ctx.translate(cx, cy); ctx.scale(sc, sc); ctx.globalAlpha = al;
   ctx.textBaseline = "middle"; ctx.textAlign = "left";
   let y = -total / 2;
@@ -764,17 +797,17 @@ function drawPreview(t){
   if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
   const ctx = cv.getContext("2d");
   ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, w, h);
-  ctx.setTransform(w / 1080, 0, 0, h / 1920, 0, 0);
-  drawCaption(ctx, t, 1080, 1920);
+  ctx.setTransform(w / FMT.W, 0, 0, h / FMT.H, 0, 0);
+  drawCaption(ctx, t, FMT.W, FMT.H);
   if (cDrag && cDrag.moved && capBox) {
     ctx.setLineDash([14, 10]); ctx.lineWidth = 4; ctx.strokeStyle = "rgba(255,255,255,.8)"; ctx.strokeRect(capBox.x, capBox.y, capBox.w, capBox.h); ctx.setLineDash([]);
-    if (guide) { ctx.strokeStyle = "#25e0f0"; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(540, 0); ctx.lineTo(540, 1920); ctx.stroke(); }
+    if (guide) { ctx.strokeStyle = "#25e0f0"; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(FMT.W / 2, 0); ctx.lineTo(FMT.W / 2, FMT.H); ctx.stroke(); }
   }
 }
 
 // ---- drag the caption on the video / tap it to edit / tap elsewhere to play
 let cDrag = null;
-function toLogical(e){ const r = $("ov").getBoundingClientRect(); return { x: (e.clientX - r.left) / r.width * 1080, y: (e.clientY - r.top) / r.height * 1920 }; }
+function toLogical(e){ const r = $("ov").getBoundingClientRect(); return { x: (e.clientX - r.left) / r.width * FMT.W, y: (e.clientY - r.top) / r.height * FMT.H }; }
 $("ov").addEventListener("pointerdown", e => {
   const p = toLogical(e);
   const hit = capBox && p.x >= capBox.x && p.x <= capBox.x + capBox.w && p.y >= capBox.y && p.y <= capBox.y + capBox.h;
@@ -786,9 +819,9 @@ $("ov").addEventListener("pointermove", e => {
   const p = toLogical(e), dx = p.x - cDrag.p.x, dy = p.y - cDrag.p.y;
   if (Math.hypot(dx, dy) > 14) cDrag.moved = true;
   if (!cDrag.moved) return;
-  let nx = clamp(cDrag.x0 + dx / 1080, 0.15, 0.85);
+  let nx = clamp(cDrag.x0 + dx / FMT.W, 0.1, 0.9);
   guide = Math.abs(nx - 0.5) < 0.03; if (guide) nx = 0.5;
-  ST.x = nx; ST.y = clamp(cDrag.y0 + dy / 1920, 0.06, 0.94);
+  ST.x = nx; ST.y = clamp(cDrag.y0 + dy / FMT.H, 0.06, 0.94);
 });
 $("ov").addEventListener("pointerup", () => {
   if (!cDrag) return;
@@ -940,6 +973,14 @@ function paintStyleUI(){
 paintBox = segInit("segBox", () => ST.box, v => { ST.box = v; saveST(); paintStyleUI(); });
 paintPos = segInit("segPos", () => { const y = ST.y; return y < 0.35 ? ".2" : y < 0.62 ? ".5" : ".72"; }, v => { ST.y = +v; ST.x = 0.5; saveST(); });
 paintLang = segInit("segLang", () => ST.lang, v => { ST.lang = v; saveST(); if (v !== "he" && !caps.some(c => c.en)) toast("עוד אין תרגום. לחצו 'תרגם את כל הכתוביות'"); });
+segInit("segFmt", () => S.fmt, v => { S.fmt = v; saveS(); updFmt(); });
+$("saveOrig").onclick = () => {
+  if (!recBlob) return;
+  const ext = /mp4/.test(recBlob.type) ? "mp4" : "webm", name = "original-" + new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-") + "." + ext;
+  const file = new File([recBlob], name, { type: recBlob.type || "video/" + ext });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) navigator.share({ files: [file] }).catch(() => {});
+  else { const a = document.createElement("a"); a.href = videoUrl; a.download = name; a.click(); }
+};
 paintFit2 = segInit("segFit2", () => S.fit, v => { S.fit = v; saveS(); $("player").style.objectFit = v; });
 $("optKar").onchange = () => { ST.karaoke = $("optKar").checked; saveST(); paintStyleUI(); };
 $("optAnim").onchange = () => { ST.anim = $("optAnim").checked; saveST(); };
@@ -979,17 +1020,18 @@ function drawVideo(ctx, v, W, H){
 }
 async function doExport(){
   if (exporting) return;
-  const v = $("player"), W = 1080, H = 1920;
+  const v = $("player"), W = FMT.W, H = FMT.H;
   ensureAudio();
   v.pause(); v.currentTime = 0;
   const playing = v.play();   // started directly from the tap so phones allow sound
   exporting = true; exCancelled = false; $("exOv").hidden = false; $("exPct").textContent = "0%"; $("exBar").style.width = "0";
   if (outGain) outGain.gain.value = 0;   // silent while saving
-  const cv = document.createElement("canvas"); cv.width = W; cv.height = H; const ctx = cv.getContext("2d");
+  const cv = document.createElement("canvas"); cv.width = W; cv.height = H; const ctx = cv.getContext("2d", { alpha: false });
+  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = "high";
   const out = cv.captureStream(30);
   if (adest) adest.stream.getAudioTracks().forEach(t => out.addTrack(t));
   const mime = pickMime(); const chunksOut = [];
-  try { exRec = new MediaRecorder(out, mime ? { mimeType: mime, videoBitsPerSecond: 12e6 } : undefined); } catch(e){ exRec = new MediaRecorder(out); }
+  try { exRec = new MediaRecorder(out, mime ? { mimeType: mime, videoBitsPerSecond: 16e6 } : undefined); } catch(e){ exRec = new MediaRecorder(out); }
   exRec.ondataavailable = e => { if (e.data.size) chunksOut.push(e.data); };
   const stopped = new Promise(r => exRec.onstop = r);
   try { await playing; } catch(e) { finishEx(); toast("לא הצלחתי לנגן את הסרטון לשמירה. נסו שוב."); return; }

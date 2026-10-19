@@ -25,13 +25,9 @@ jobs:
         run: |
           git config user.name "tv-live-bot"
           git config user.email "tv-live-bot@users.noreply.github.com"
+          # commit only when the live list or a channel's status changed (not just the timestamp)
+          if [ "$(git show HEAD:tv/live.json | jq -cS '{live,status}')" = "$(jq -cS '{live,status}' tv/live.json)" ]; then echo "no real change"; exit 0; fi
           git add tv/live.json
-          if git diff --cached --quiet; then echo "no change"; exit 0; fi
-          # ignore the timestamp-only changes so Pages doesn't rebuild every 20 minutes
-          if git diff --cached -U0 tv/live.json | grep -E '^[+-] ' | grep -vq '"updated"'; then
-            git commit -m "tv: update live channels"
-            git pull --rebase -q origin main
-            git push
-          else
-            echo "only timestamp changed"
-          fi
+          git commit -m "tv: update live channels"
+          git pull --rebase -q origin main
+          git push

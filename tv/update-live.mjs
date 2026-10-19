@@ -18,14 +18,19 @@ async function check(id) {
     const video = (h.match(/<link rel="canonical" href="https:\/\/www\.youtube\.com\/watch\?v=([\w-]{11})"/) || [])[1];
     const live = /"isLiveNow":true/.test(h) || /"isLive":true/.test(h);
     const embed = !/"playableInEmbed":false/.test(h);
-    return video && live ? { video, embed } : null;
-  } catch (e) { return null; }
+    const why = r.status !== 200 ? "http " + r.status
+      : /consent\.youtube|Before you continue/i.test(h) ? "consent page"
+      : /confirm you.re not a bot|unusual traffic/i.test(h) ? "bot check"
+      : !video ? "no live video" : !live ? "video not live" : "live";
+    return { res: video && live ? { video, embed } : null, why };
+  } catch (e) { return { res: null, why: "error " + e.message }; }
 }
 
-const out = { updated: new Date().toISOString(), live: {} };
+const out = { updated: new Date().toISOString(), live: {}, status: {} };
 for (const id of ids) {
-  const res = await check(id);
+  const { res, why } = await check(id);
   if (res) out.live[id] = res;
+  out.status[id] = why;
   await new Promise(r => setTimeout(r, 700));
 }
 writeFileSync(new URL("./live.json", import.meta.url), JSON.stringify(out, null, 1) + "\n");

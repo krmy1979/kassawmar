@@ -26,10 +26,15 @@ async function check(id) {
   } catch (e) { return { res: null, why: "error " + e.message }; }
 }
 
+// last known broadcasts: used when YouTube blocks the check ("bot check"), since 24/7 streams keep their id for a long time
+let prev = {};
+try { prev = JSON.parse(readFileSync(new URL("./live.json", import.meta.url), "utf8")).live || {}; } catch (e) {}
+
 const out = { updated: new Date().toISOString(), live: {}, status: {} };
 for (const id of ids) {
   const { res, why } = await check(id);
   if (res) out.live[id] = res;
+  else if (why === "bot check" && prev[id]) out.live[id] = { ...prev[id], kept: true };
   out.status[id] = why;
   await new Promise(r => setTimeout(r, 700));
 }

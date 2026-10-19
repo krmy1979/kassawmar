@@ -1,0 +1,37 @@
+name: Update live TV list
+on:
+  schedule:
+    - cron: "*/20 * * * *"
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ["tv/index.html", "tv/update-live.mjs", ".github/workflows/tv-live.yml"]
+permissions:
+  contents: write
+concurrency:
+  group: tv-live
+  cancel-in-progress: false
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: node tv/update-live.mjs
+      - name: Commit if changed
+        run: |
+          git config user.name "tv-live-bot"
+          git config user.email "tv-live-bot@users.noreply.github.com"
+          git add tv/live.json
+          if git diff --cached --quiet; then echo "no change"; exit 0; fi
+          # ignore the timestamp-only changes so Pages doesn't rebuild every 20 minutes
+          if git diff --cached -U0 tv/live.json | grep -E '^[+-] ' | grep -vq '"updated"'; then
+            git commit -m "tv: update live channels"
+            git pull --rebase -q origin main
+            git push
+          else
+            echo "only timestamp changed"
+          fi

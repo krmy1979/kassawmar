@@ -44,6 +44,8 @@ button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{ou
 .ch .sub{font-size:13px;color:var(--muted)}
 .ch .flag{font-size:12px;font-weight:500;padding:2px 8px;border-radius:999px;color:#fff}
 .ch .flag.il{background:var(--il)} .ch .flag.et{background:var(--et)} .ch .flag.other{background:#7a7f86}
+.ch .livebadge{font-size:12px;font-weight:700;color:#fff;background:#d93a3a;border-radius:999px;padding:2px 8px}
+.ch.offair{opacity:.72}
 .ch .fav{position:absolute;left:8px;top:8px;border:0;background:transparent;font-size:20px;padding:2px 6px;color:var(--muted)}
 .ch .fav.is{color:var(--accent)}
 details.add{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
@@ -73,10 +75,11 @@ details.add summary{cursor:pointer;font-weight:500}
       <a id="siteLink" target="_blank" rel="noopener">אתר רשמי</a>
       <button class="small" id="stopBtn">עצור</button>
     </div>
-    <div class="note" id="nowNote" hidden>אם מופיעה הודעה שהשידור לא זמין, הערוץ כנראה לא משדר בשידור חי ביוטיוב כרגע. נסו את האתר הרשמי.</div>
+    <div class="note" id="nowNote" hidden></div>
   </section>
 
   <div class="chips" id="filters" role="tablist" aria-label="סינון ערוצים">
+    <button data-f="live">🔴 בשידור עכשיו</button>
     <button data-f="all" class="on">הכול</button>
     <button data-f="il">🇮🇱 ישראל</button>
     <button data-f="et">🇪🇹 אתיופיה</button>
@@ -129,18 +132,22 @@ const FLAG = { il:"ישראל", et:"אתיופיה", other:"עולם" };
 function load(k, d){ try { const v = JSON.parse(localStorage.getItem(k)); return v == null ? d : v; } catch(e){ return d; } }
 function save(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} }
 let custom = load("tv_custom", []), hidden = load("tv_hidden", []), favs = load("tv_favs", []);
-let filter = load("tv_filter", "all"), current = null, hls = null;
+let filter = load("tv_filter", "all"), current = null, hls = null, liveMap = {};
+const liveOf = c => c.yt && liveMap[c.yt] ? liveMap[c.yt] : null;
 
 const channels = () => DEFAULTS.filter(c => !hidden.includes(c.id)).concat(custom);
 
 function render(){
   for (const b of $("filters").querySelectorAll("button")) b.classList.toggle("on", b.dataset.f === filter);
-  const list = channels().filter(c => filter === "all" || (filter === "fav" ? favs.includes(c.id) : c.c === filter));
-  $("noFav").hidden = !(filter === "fav" && !list.length);
+  const list = channels().filter(c => filter === "all" || (filter === "fav" ? favs.includes(c.id) : filter === "live" ? !!liveOf(c) : c.c === filter))
+    .sort((a, b) => (liveOf(b) ? 1 : 0) - (liveOf(a) ? 1 : 0));
+  $("noFav").hidden = !((filter === "fav" || filter === "live") && !list.length);
+  $("noFav").textContent = filter === "live" ? "אף ערוץ מהרשימה לא משדר כרגע ביוטיוב." : "עוד אין מועדפים. לחצו ☆ על ערוץ כדי להוסיף.";
   $("count").textContent = channels().length + " ערוצים";
   const g = $("grid"); g.textContent = "";
   for (const c of list) {
-    const card = document.createElement("div"); card.className = "ch" + (current && current.id === c.id ? " on" : "");
+    const lv = liveOf(c);
+    const card = document.createElement("div"); card.className = "ch" + (current && current.id === c.id ? " on" : "") + (c.yt && !lv ? " offair" : "");
     card.setAttribute("role", "button"); card.tabIndex = 0;
     const flag = document.createElement("span"); flag.className = "flag " + c.c; flag.textContent = FLAG[c.c] || "עולם";
     const nm = document.createElement("div"); nm.className = "nm"; nm.textContent = c.name;
@@ -148,7 +155,10 @@ function render(){
     const fav = document.createElement("button"); fav.className = "fav" + (favs.includes(c.id) ? " is" : "");
     fav.textContent = favs.includes(c.id) ? "★" : "☆"; fav.setAttribute("aria-label", favs.includes(c.id) ? "הסר ממועדפים" : "הוסף למועדפים");
     fav.onclick = e => { e.stopPropagation(); favs = favs.includes(c.id) ? favs.filter(x => x !== c.id) : favs.concat(c.id); save("tv_favs", favs); render(); };
-    card.append(flag, nm, sub, fav);
+    const badges = document.createElement("div"); badges.style.cssText = "display:flex;gap:6px;flex-wrap:wrap";
+    badges.append(flag);
+    if (lv) { const b = document.createElement("span"); b.className = "livebadge"; b.textContent = "● בשידור"; badges.append(b); }
+    card.append(badges, nm, sub, fav);
     const rm = document.createElement("button"); rm.className = "small"; rm.textContent = c.custom ? "מחק" : "הסתר";
     rm.style.marginTop = "auto";
     rm.onclick = e => { e.stopPropagation(); remove(c); };
@@ -178,10 +188,12 @@ async function play(c){
   $("ytLink").hidden = !c.yt; if (c.yt) $("ytLink").href = "https://www.youtube.com/channel/" + c.yt + "/live";
   $("siteLink").hidden = !c.site; if (c.site) $("siteLink").href = c.site;
   const s = $("screen");
-  if (c.yt) {
-    $("empty").hidden = true; $("nowNote").hidden = false;
+  const lv = liveOf(c);
+  if (c.yt && lv && lv.embed) {
+    if (c.yt) $("ytLink").href = "https://www.youtube.com/watch?v=" + lv.video;
+    $("empty").hidden = true;
     const f = document.createElement("iframe");
-    f.src = "https://www.youtube.com/embed/live_stream?channel=" + encodeURIComponent(c.yt) + "&autoplay=1&rel=0";
+    f.src = "https://www.youtube.com/embed/" + encodeURIComponent(lv.video) + "?autoplay=1&rel=0&playsinline=1";
     f.allow = "autoplay; encrypted-media; picture-in-picture; fullscreen"; f.allowFullscreen = true;
     f.referrerPolicy = "strict-origin-when-cross-origin"; f.title = c.name;
     s.appendChild(f);
@@ -194,6 +206,11 @@ async function play(c){
         hls.on(Hls.Events.ERROR, (e, d) => { if (d.fatal) showMsg("השידור לא נטען. ייתכן שהקישור לא עובד או שהערוץ חוסם צפייה מחוץ לאתר שלו."); }); }
       catch(e){ showMsg("לא הצלחתי לטעון את הנגן. בדקו חיבור לאינטרנט."); }
     }
+  } else if (c.yt && lv && !lv.embed) {
+    $("ytLink").href = "https://www.youtube.com/watch?v=" + lv.video;
+    showMsg("הערוץ משדר עכשיו, אבל לא מאפשר צפייה מחוץ ליוטיוב. לחצו על \"פתח ביוטיוב\".");
+  } else if (c.yt) {
+    showMsg("הערוץ לא משדר כרגע בשידור חי ביוטיוב." + (c.site ? " נסו את \"אתר רשמי\"." : " נסו שוב מאוחר יותר."));
   } else {
     showMsg("את הערוץ הזה אפשר לראות רק באתר הרשמי שלו. לחצו על \"אתר רשמי\".");
   }
@@ -228,7 +245,14 @@ $("aSave").onclick = () => {
   filter = country; save("tv_filter", filter); render(); play(ch);
 };
 
-render();
+async function refreshLive(){
+  try {
+    const r = await fetch("live.json?t=" + Date.now(), { cache: "no-store" });
+    const j = await r.json(); liveMap = j.live || {};
+  } catch(e){ liveMap = {}; }
+  render();
+}
+render(); refreshLive(); setInterval(refreshLive, 5 * 60 * 1000);
 </script>
 </body>
 </html>

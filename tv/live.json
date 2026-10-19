@@ -1,21 +1,24 @@
 {
- "updated": "2026-10-19T14:43:52.770Z",
+ "updated": "2026-10-19T14:44:46.329Z",
  "live": {
+  "UCKEImtWikw9usC1pl_9m1nQ": {
+   "video": "U3ycAjHwNtQ",
+   "embed": true,
+   "kept": true
+  },
+  "UCisowXt5wZkp2sR3rFh9lnQ": {
+   "video": "SyzG3JgF06s",
+   "embed": true,
+   "kept": true
+  },
   "UCVcc_sbg3AcXLV9vVufJrGg": {
    "video": "0qBGBITzrLk",
    "embed": true
   },
-  "UCisowXt5wZkp2sR3rFh9lnQ": {
-   "video": "SyzG3JgF06s",
-   "embed": true
-  },
   "UCvHDpsWKADrDia0c99X37vg": {
    "video": "VsXr9odwb8Q",
-   "embed": true
-  },
-  "UCKEImtWikw9usC1pl_9m1nQ": {
-   "video": "U3ycAjHwNtQ",
-   "embed": true
+   "embed": true,
+   "kept": true
   }
  },
  "status": {

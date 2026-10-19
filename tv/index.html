@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>שידורים חיים</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700&display=swap">
+<style>
+/* Layout: sticky player on top, channel grid below; dark "living room" look that also works in light mode */
+:root{
+  --bg:#0f1418; --surface:#182129; --surface2:#21303b; --fg:#eef3f6; --muted:#9db0bd; --line:#2a3a46;
+  --accent:#f2b443; --accent-fg:#1b1405; --il:#4a8fe0; --et:#3fae6a; --danger:#ff6b6b;
+  --font:"Rubik",system-ui,"Segoe UI",Arial,sans-serif; color-scheme:dark;
+}
+@media (prefers-color-scheme:light){:root{
+  --bg:#f3f1ec; --surface:#ffffff; --surface2:#f1ede5; --fg:#1b2329; --muted:#5d6a73; --line:#ddd6c9;
+  --accent:#c98a14; --accent-fg:#ffffff; --il:#2f6fbd; --et:#2b8a51; --danger:#c2413a; color-scheme:light}}
+*{box-sizing:border-box} [hidden]{display:none!important}
+html,body{margin:0} body{background:var(--bg);color:var(--fg);font-family:var(--font);font-size:16px}
+header{display:flex;align-items:center;gap:12px;padding:14px 16px;max-width:1100px;margin:0 auto}
+header h1{font-size:22px;margin:0;font-weight:700} header h1 span{color:var(--accent)}
+header .sp{flex:1}
+main{max-width:1100px;margin:0 auto;padding:0 16px 40px;display:flex;flex-direction:column;gap:16px}
+button,input,select{font:inherit;color:var(--fg)}
+button{cursor:pointer;border-radius:10px;border:1px solid var(--line);background:var(--surface);padding:9px 14px}
+button.primary{background:var(--accent);color:var(--accent-fg);border-color:var(--accent);font-weight:500}
+button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.player{position:sticky;top:0;z-index:5;background:var(--bg);padding-top:4px;display:flex;flex-direction:column;gap:8px}
+.screen{position:relative;width:100%;aspect-ratio:16/9;background:#000;border-radius:14px;overflow:hidden;border:1px solid var(--line)}
+.screen iframe,.screen video{position:absolute;inset:0;width:100%;height:100%;border:0;background:#000}
+.screen .empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:#9db0bd;text-align:center;padding:16px}
+.nowbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.nowbar .t{font-weight:700;font-size:18px;flex:1;min-width:140px}
+.nowbar a{color:var(--fg);text-decoration:none;border:1px solid var(--line);border-radius:10px;padding:7px 12px;font-size:14px;background:var(--surface)}
+.note{color:var(--muted);font-size:14px;line-height:1.5}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chips button{border-radius:999px;padding:7px 14px;font-size:15px}
+.chips button.on{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px}
+.ch{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:6px;text-align:right;padding:14px;min-height:96px;background:var(--surface);border:1px solid var(--line);border-radius:14px}
+.ch.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+.ch .nm{font-weight:700;font-size:17px;line-height:1.25}
+.ch .sub{font-size:13px;color:var(--muted)}
+.ch .flag{font-size:12px;font-weight:500;padding:2px 8px;border-radius:999px;color:#fff}
+.ch .flag.il{background:var(--il)} .ch .flag.et{background:var(--et)} .ch .flag.other{background:#7a7f86}
+.ch .fav{position:absolute;left:8px;top:8px;border:0;background:transparent;font-size:20px;padding:2px 6px;color:var(--muted)}
+.ch .fav.is{color:var(--accent)}
+details.add{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+details.add summary{cursor:pointer;font-weight:500}
+.form{display:grid;gap:8px;margin-top:10px}
+.form input,.form select{width:100%;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--bg)}
+.err{color:var(--danger);font-size:14px;min-height:1em}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.small{font-size:13px;padding:5px 10px}
+</style>
+</head>
+<body>
+<header>
+  <h1>שידורים <span>חיים</span></h1>
+  <span class="sp"></span>
+  <span class="note" id="count"></span>
+</header>
+
+<main>
+  <section class="player" aria-label="נגן">
+    <div class="screen" id="screen">
+      <div class="empty" id="empty"><div style="font-size:40px">📺</div><div>בחרו ערוץ מהרשימה</div></div>
+    </div>
+    <div class="nowbar" id="nowbar" hidden>
+      <span class="t" id="nowTitle"></span>
+      <a id="ytLink" target="_blank" rel="noopener">פתח ביוטיוב</a>
+      <a id="siteLink" target="_blank" rel="noopener">אתר רשמי</a>
+      <button class="small" id="stopBtn">עצור</button>
+    </div>
+    <div class="note" id="nowNote" hidden>אם מופיעה הודעה שהשידור לא זמין, הערוץ כנראה לא משדר בשידור חי ביוטיוב כרגע. נסו את האתר הרשמי.</div>
+  </section>
+
+  <div class="chips" id="filters" role="tablist" aria-label="סינון ערוצים">
+    <button data-f="all" class="on">הכול</button>
+    <button data-f="il">🇮🇱 ישראל</button>
+    <button data-f="et">🇪🇹 אתיופיה</button>
+    <button data-f="other">🌍 עולם</button>
+    <button data-f="fav">★ מועדפים</button>
+  </div>
+
+  <div class="grid" id="grid"></div>
+  <div class="note" id="noFav" hidden>עוד אין מועדפים. לחצו ☆ על ערוץ כדי להוסיף.</div>
+
+  <details class="add">
+    <summary>+ הוספת ערוץ משלכם</summary>
+    <div class="form">
+      <input id="aName" maxlength="40" placeholder="שם הערוץ">
+      <select id="aCountry"><option value="il">ישראל</option><option value="et">אתיופיה</option><option value="other">עולם</option></select>
+      <input id="aUrl" dir="ltr" placeholder="https://www.youtube.com/channel/UC… או קישור לשידור .m3u8 או לאתר">
+      <div class="note">אפשר להדביק: קישור לערוץ יוטיוב (youtube.com/channel/UC…), קישור ישיר לשידור (.m3u8), או סתם קישור לאתר הערוץ. רק שידורים רשמיים וחינמיים.</div>
+      <div class="row"><button class="primary" id="aSave">הוסף</button></div>
+      <div class="err" id="aErr" role="status"></div>
+    </div>
+  </details>
+
+  <div class="row">
+    <button class="small" id="resetBtn">שחזר רשימת ערוצים מקורית</button>
+  </div>
+  <p class="note">האפליקציה מציגה רק שידורים רשמיים וחינמיים שהערוצים עצמם מפרסמים ביוטיוב או באתרים שלהם. ערוץ שלא משדר כרגע בשידור חי יציג הודעה מתאימה.</p>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+// type: yt = YouTube channel live stream, hls = direct .m3u8, site = link only
+const DEFAULTS = [
+  { id:"kan11",    name:"כאן 11",          sub:"תאגיד השידור",     c:"il", yt:"UCKqFqiCe1dCUxRe0_YNZ6gg", site:"https://www.kan.org.il/live/" },
+  { id:"kannews",  name:"כאן חדשות",       sub:"תאגיד השידור",     c:"il", yt:"UC_HwfTAcjBESKZRJq6BTCpg", site:"https://www.kan.org.il/live/" },
+  { id:"n12",      name:"קשת 12",           sub:"באתר mako",        c:"il", site:"https://www.mako.co.il/" },
+  { id:"n13",      name:"חדשות 13",         sub:"רשת 13",           c:"il", yt:"UCvQmPpU20hw1Trss_CVwaew", site:"https://13tv.co.il/live/" },
+  { id:"c14",      name:"ערוץ 14",          sub:"עכשיו 14",         c:"il", yt:"UCKEImtWikw9usC1pl_9m1nQ", site:"https://www.c14.co.il/" },
+  { id:"i24he",    name:"i24NEWS עברית",    sub:"חדשות 24/7",       c:"il", yt:"UCisowXt5wZkp2sR3rFh9lnQ", site:"https://www.i24news.tv/he" },
+  { id:"knesset",  name:"ערוץ הכנסת",       sub:"ערוץ 99",          c:"il", yt:"UCpjNXONNE-JUz7QACB1Cgcw" },
+  { id:"ebc",      name:"EBC",              sub:"ኢቢሲ · הטלוויזיה הממלכתית", c:"et", yt:"UCOhrz3uRCOHmK6ueUstw7_Q", site:"https://www.ebc.et/" },
+  { id:"fana",     name:"Fana TV",          sub:"ፋና ቴሌቪዥን",       c:"et", yt:"UCZtXd8pSeqURf5MT2fqE51g", site:"https://www.fanabc.com/" },
+  { id:"ebs",      name:"EBS TV",           sub:"Ethiopian Broadcasting Service", c:"et", yt:"UCVcc_sbg3AcXLV9vVufJrGg" },
+  { id:"walta",    name:"Walta TV",         sub:"ዋልታ ቲቪ",          c:"et", yt:"UCEiPUKkNiYgLkyLRYEBY5aw", site:"https://waltainfo.com/" },
+  { id:"arts",     name:"Arts TV",          sub:"Arts TV World",    c:"et", yt:"UCSnwxtpNr-2QupM0qi11Y6Q" },
+  { id:"esat",     name:"ESAT",             sub:"ESATtv Ethiopia",  c:"et", yt:"UCSYM-vgRrMYsZbG-Z7Kz0Pw" },
+  { id:"i24en",    name:"i24NEWS English",  sub:"News 24/7",        c:"other", yt:"UCvHDpsWKADrDia0c99X37vg", site:"https://www.i24news.tv/en" }
+];
+const FLAG = { il:"ישראל", et:"אתיופיה", other:"עולם" };
+
+function load(k, d){ try { const v = JSON.parse(localStorage.getItem(k)); return v == null ? d : v; } catch(e){ return d; } }
+function save(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} }
+let custom = load("tv_custom", []), hidden = load("tv_hidden", []), favs = load("tv_favs", []);
+let filter = load("tv_filter", "all"), current = null, hls = null;
+
+const channels = () => DEFAULTS.filter(c => !hidden.includes(c.id)).concat(custom);
+
+function render(){
+  for (const b of $("filters").querySelectorAll("button")) b.classList.toggle("on", b.dataset.f === filter);
+  const list = channels().filter(c => filter === "all" || (filter === "fav" ? favs.includes(c.id) : c.c === filter));
+  $("noFav").hidden = !(filter === "fav" && !list.length);
+  $("count").textContent = channels().length + " ערוצים";
+  const g = $("grid"); g.textContent = "";
+  for (const c of list) {
+    const card = document.createElement("div"); card.className = "ch" + (current && current.id === c.id ? " on" : "");
+    card.setAttribute("role", "button"); card.tabIndex = 0;
+    const flag = document.createElement("span"); flag.className = "flag " + c.c; flag.textContent = FLAG[c.c] || "עולם";
+    const nm = document.createElement("div"); nm.className = "nm"; nm.textContent = c.name;
+    const sub = document.createElement("div"); sub.className = "sub"; sub.textContent = c.sub || (c.yt ? "יוטיוב" : c.hls ? "שידור ישיר" : "אתר");
+    const fav = document.createElement("button"); fav.className = "fav" + (favs.includes(c.id) ? " is" : "");
+    fav.textContent = favs.includes(c.id) ? "★" : "☆"; fav.setAttribute("aria-label", favs.includes(c.id) ? "הסר ממועדפים" : "הוסף למועדפים");
+    fav.onclick = e => { e.stopPropagation(); favs = favs.includes(c.id) ? favs.filter(x => x !== c.id) : favs.concat(c.id); save("tv_favs", favs); render(); };
+    card.append(flag, nm, sub, fav);
+    const rm = document.createElement("button"); rm.className = "small"; rm.textContent = c.custom ? "מחק" : "הסתר";
+    rm.style.marginTop = "auto";
+    rm.onclick = e => { e.stopPropagation(); remove(c); };
+    card.append(rm);
+    card.onclick = () => play(c);
+    card.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); play(c); } };
+    g.appendChild(card);
+  }
+}
+$("filters").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; filter = b.dataset.f; save("tv_filter", filter); render(); });
+
+function stop(){
+  if (hls) { try { hls.destroy(); } catch(e){} hls = null; }
+  const s = $("screen"); for (const el of s.querySelectorAll("iframe,video")) el.remove();
+  $("empty").hidden = false; $("empty").innerHTML = '<div style="font-size:40px">📺</div><div>בחרו ערוץ מהרשימה</div>'; $("nowbar").hidden = true; $("nowNote").hidden = true; current = null; render();
+}
+$("stopBtn").onclick = stop;
+
+function loadHlsLib(){
+  if (window.Hls) return Promise.resolve();
+  return new Promise((res, rej) => { const s = document.createElement("script"); s.src = "https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.5.13/hls.min.js"; s.onload = res; s.onerror = rej; document.head.appendChild(s); });
+}
+
+async function play(c){
+  stop(); current = c; render();
+  $("nowTitle").textContent = c.name; $("nowbar").hidden = false;
+  $("ytLink").hidden = !c.yt; if (c.yt) $("ytLink").href = "https://www.youtube.com/channel/" + c.yt + "/live";
+  $("siteLink").hidden = !c.site; if (c.site) $("siteLink").href = c.site;
+  const s = $("screen");
+  if (c.yt) {
+    $("empty").hidden = true; $("nowNote").hidden = false;
+    const f = document.createElement("iframe");
+    f.src = "https://www.youtube.com/embed/live_stream?channel=" + encodeURIComponent(c.yt) + "&autoplay=1&rel=0";
+    f.allow = "autoplay; encrypted-media; picture-in-picture; fullscreen"; f.allowFullscreen = true;
+    f.referrerPolicy = "strict-origin-when-cross-origin"; f.title = c.name;
+    s.appendChild(f);
+  } else if (c.hls) {
+    $("empty").hidden = true;
+    const v = document.createElement("video"); v.controls = true; v.autoplay = true; v.playsInline = true; s.appendChild(v);
+    if (v.canPlayType("application/vnd.apple.mpegurl")) v.src = c.hls;
+    else {
+      try { await loadHlsLib(); hls = new Hls(); hls.loadSource(c.hls); hls.attachMedia(v);
+        hls.on(Hls.Events.ERROR, (e, d) => { if (d.fatal) showMsg("השידור לא נטען. ייתכן שהקישור לא עובד או שהערוץ חוסם צפייה מחוץ לאתר שלו."); }); }
+      catch(e){ showMsg("לא הצלחתי לטעון את הנגן. בדקו חיבור לאינטרנט."); }
+    }
+  } else {
+    showMsg("את הערוץ הזה אפשר לראות רק באתר הרשמי שלו. לחצו על \"אתר רשמי\".");
+  }
+  if (window.innerWidth < 700) window.scrollTo({ top: 0, behavior: "smooth" });
+}
+function showMsg(t){
+  const e = $("empty"); e.hidden = false; e.textContent = "";
+  const d = document.createElement("div"); d.textContent = t; e.appendChild(d);
+}
+
+function remove(c){
+  if (c.custom) { if (!confirm("למחוק את " + c.name + "?")) return; custom = custom.filter(x => x.id !== c.id); save("tv_custom", custom); }
+  else { hidden = hidden.concat(c.id); save("tv_hidden", hidden); }
+  if (current && current.id === c.id) stop(); else render();
+}
+$("resetBtn").onclick = () => { if (!confirm("להחזיר את כל הערוצים המקוריים שהסתרתם?")) return; hidden = []; save("tv_hidden", hidden); render(); };
+
+$("aSave").onclick = () => {
+  const name = $("aName").value.trim().slice(0, 40), url = $("aUrl").value.trim(), country = $("aCountry").value;
+  $("aErr").textContent = "";
+  if (!name) { $("aErr").textContent = "כתבו שם לערוץ."; return; }
+  let u; try { u = new URL(url); } catch(e){ $("aErr").textContent = "הקישור לא תקין."; return; }
+  if (u.protocol !== "https:") { $("aErr").textContent = "צריך קישור שמתחיל ב־https."; return; }
+  const ch = { id: "c" + Date.now(), name, c: country, custom: true };
+  const m = url.match(/youtube\.com\/channel\/(UC[\w-]{22})/);
+  if (m) ch.yt = m[1];
+  else if (/youtube\.com|youtu\.be/.test(u.hostname)) { $("aErr").textContent = "צריך קישור לערוץ בצורה youtube.com/channel/UC…. ביוטיוב: פתחו את הערוץ ← 'עוד' ← 'שיתוף ערוץ' ← 'העתקת מזהה הערוץ'."; return; }
+  else if (/\.m3u8(\?|$)/i.test(u.pathname + u.search)) ch.hls = url;
+  else ch.site = url;
+  custom.push(ch); save("tv_custom", custom);
+  $("aName").value = ""; $("aUrl").value = ""; $("aErr").textContent = "";
+  filter = country; save("tv_filter", filter); render(); play(ch);
+};
+
+render();
+</script>
+</body>
+</html>

@@ -83,6 +83,10 @@ textarea,input[type=text]{width:100%;border:1px solid var(--line);background:var
 .recbtn.on i{width:28px;height:28px;border-radius:8px}
 .spv{min-width:54px;text-align:center;font-size:13px;line-height:1.2}
 .spv b{display:block;font-size:17px}
+.pauseOv{position:absolute;inset:0;z-index:6;background:rgba(0,0,0,.72);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:24px}
+.pauseOv h3{margin:0 0 6px;font-size:22px}
+.pauseOv button{width:min(320px,86vw);padding:15px;font-size:17px;border-radius:16px}
+.recPause{background:#fff!important;color:#111;font-weight:700}
 .camErr{position:absolute;inset:0;display:grid;place-items:center;padding:30px;text-align:center;z-index:2}
 
 /* ---------- sheets ---------- */
@@ -223,6 +227,14 @@ textarea,input[type=text]{width:100%;border:1px solid var(--line);background:var
   </div>
   <div class="timer" id="timer" hidden>● <span id="timerTxt">00:00</span></div>
   <div class="count" id="count" hidden></div>
+  <div class="pauseOv" id="pauseOv" hidden>
+    <h3>⏸ הצילום בהשהיה</h3>
+    <div class="mut small" id="pauseInfo"></div>
+    <button class="primary" id="pvResume">▶ המשך לצלם מאותה נקודה</button>
+    <button id="pvRestart">🔄 מחק והתחל מהתחלה</button>
+    <button id="pvFinish">✅ סיים ועבור לעריכה</button>
+    <button class="danger" id="pvExit">✕ מחק וצא</button>
+  </div>
   <div class="rbottom">
     <div class="zoomRow" id="zoomRow" hidden>
       <span class="small">🔍</span><input type="range" id="zoom" aria-label="זום"><b class="small" id="zoomVal" style="min-width:36px"></b>
@@ -230,7 +242,7 @@ textarea,input[type=text]{width:100%;border:1px solid var(--line);background:var
     <div class="recRow">
       <div class="sp"><button class="rbtn" id="slower" aria-label="לאט יותר">−</button><div class="spv"><b id="spv"></b>מהירות</div><button class="rbtn" id="faster" aria-label="מהר יותר">+</button></div>
       <button class="recbtn" id="recBtn" aria-label="התחל הקלטה"><i></i></button>
-      <div class="sp"><button class="rbtn" id="pauseP">⏸ טקסט</button><button class="rbtn" id="resetP" aria-label="לתחילת הטקסט">⏮</button></div>
+      <div class="sp"><button class="rbtn" id="pauseP">⏸ טקסט</button><button class="rbtn" id="resetP" aria-label="לתחילת הטקסט">⏮</button><button class="rbtn recPause" id="recPause" hidden>⏸ עצירה</button></div>
     </div>
   </div>
 </section>
@@ -505,6 +517,9 @@ const QUAL = { "720": [1280, 720], "1080": [1920, 1080], "4k": [3840, 2160] };
 let stream = null, vtrack = null, facing = "user", recorder = null, parts = [], recBlob = null, recDur = 0;
 let chunks = [], lineEls = [], times = [], speechSegs = [];
 let pPos = 0, pPaused = false, pLast = 0, raf = 0, recording = false, t0 = 0, timerInt = 0, lastCur = -2, torchOn = false;
+let recPaused = false, pauseAt = 0, pausedTotal = 0;
+// recording clock that doesn't count paused time
+const recT = () => (performance.now() - t0 - pausedTotal - (recPaused ? performance.now() - pauseAt : 0)) / 1000;
 
 function stopStream(){ if (stream) stream.getTracks().forEach(t => t.stop()); stream = null; vtrack = null; }
 async function openCamera(){
@@ -547,7 +562,7 @@ $("zoom").oninput = () => { $("zoomVal").textContent = (+$("zoom").value).toFixe
 $("torchBtn").onclick = () => { torchOn = !torchOn; $("torchBtn").classList.toggle("on", torchOn); vtrack && vtrack.applyConstraints({ advanced: [{ torch: torchOn }] }).catch(() => {}); };
 $("flipBtn").onclick = () => { if (recording) return; facing = facing === "user" ? "environment" : "user"; openCamera(); };
 $("qualBtn").onclick = () => { if (recording) return; const order = ["720", "1080", "4k"]; S.quality = order[(order.indexOf(S.quality) + 1) % 3]; saveS(); paintQual(); openCamera(); toast("איכות: " + (S.quality === "4k" ? "4K" : S.quality + "p")); };
-$("recClose").onclick = () => { if (recording) { if (!confirm("לעצור ולמחוק את הצילום?")) return; stopRec(true); } closeRec(); show("home"); };
+$("recClose").onclick = () => { if (recording) return pauseRec(); closeRec(); show("home"); };
 function closeRec(){ cancelAnimationFrame(raf); stopStream(); }
 function applyRecUI(){
   $("cam").style.objectFit = S.fit;
@@ -582,14 +597,14 @@ let pDrag = null;
 function tick(now){
   const dt = Math.min(0.1, (now - pLast) / 1000); pLast = now;
   const H = $("ptxt").scrollHeight;
-  if (recording && !pPaused && !pDrag) pPos = Math.min(pPos + pxPerSec() * dt, H);
+  if (recording && !recPaused && !pPaused && !pDrag) pPos = Math.min(pPos + pxPerSec() * dt, H);
   $("ptxt").style.transform = `translateY(${markerY() - pPos}px)`;
   $("pmark").style.top = markerY() + "px";
   let cur = -1;
   for (let i = 0; i < lineEls.length; i++) {
     if (lineEls[i].offsetTop <= pPos + 1) {
       cur = i;
-      if (recording && times[i] == null) times[i] = (performance.now() - t0) / 1000;
+      if (recording && times[i] == null) times[i] = recT();
     } else break;
   }
   if (cur !== lastCur) { lineEls.forEach((el, i) => el.className = "pl" + (i < cur ? " past" : i === cur ? " cur" : "")); lastCur = cur; }
@@ -598,7 +613,7 @@ function tick(now){
 $("prompter").addEventListener("pointerdown", e => { pDrag = { y: e.clientY, p: pPos, moved: false }; $("prompter").setPointerCapture(e.pointerId); });
 $("prompter").addEventListener("pointermove", e => {
   if (!pDrag) return; const dy = e.clientY - pDrag.y;
-  if (Math.abs(dy) > 6) pDrag.moved = true;
+  if (Math.abs(dy) > 14) pDrag.moved = true;
   if (pDrag.moved) pPos = clamp(pDrag.p - dy, 0, $("ptxt").scrollHeight);
 });
 $("prompter").addEventListener("pointerup", () => { if (pDrag && !pDrag.moved) { pPaused = !pPaused; paintPause(); } pDrag = null; });
@@ -639,19 +654,50 @@ function startRec(){
     closeRec(); openEditor(true);
   };
   pPos = 0; times = new Array(chunks.length).fill(null); lastCur = -2;
-  recorder.start(1000); t0 = performance.now(); recording = true;
-  $("recBtn").classList.add("on"); $("recBtn").setAttribute("aria-label", "עצור הקלטה");
-  $("timer").hidden = false; $("rtop").style.visibility = "hidden"; paintPause();
-  timerInt = setInterval(() => { $("timerTxt").textContent = fmt((performance.now() - t0) / 1000).padStart(5, "0"); }, 250);
+  recorder.start(1000); t0 = performance.now(); recording = true; recPaused = false; pausedTotal = 0;
+  $("recBtn").classList.add("on"); $("recBtn").setAttribute("aria-label", "סיים צילום");
+  $("timer").hidden = false; $("rtop").lastElementChild.style.visibility = "hidden"; paintRecUI(); paintPause();
+  clearInterval(timerInt);
+  timerInt = setInterval(() => { $("timerTxt").textContent = fmt(recT()).padStart(5, "0") + (recPaused ? " ⏸" : ""); }, 250);
   startSpeech();
 }
 function stopRec(discard){
-  recDur = (performance.now() - t0) / 1000;
+  recDur = recT();
+  if (recPaused) { pausedTotal += performance.now() - pauseAt; recPaused = false; }
   recording = false; clearInterval(timerInt); stopSpeech();
   $("recBtn").classList.remove("on"); $("recBtn").setAttribute("aria-label", "התחל הקלטה");
-  $("timer").hidden = true; $("rtop").style.visibility = ""; paintPause();
+  $("timer").hidden = true; $("rtop").lastElementChild.style.visibility = ""; $("pauseOv").hidden = true; paintRecUI(); paintPause();
   if (recorder && recorder.state !== "inactive") { if (discard) recorder.onstop = null; recorder.stop(); }
 }
+function paintRecUI(){ $("recPause").hidden = !recording; $("resetP").hidden = recording; }
+// ---- pause menu: continue / delete and start over / finish / exit
+function pauseRec(){
+  if (!recording || recPaused) return;
+  recPaused = true; pauseAt = performance.now();
+  try { recorder.pause(); } catch(e){}
+  stopSpeech();
+  $("pauseInfo").textContent = "צולמו עד עכשיו " + fmt(recT()) + ". הטקסט עצר באותה נקודה.";
+  $("pauseOv").hidden = false;
+}
+async function resumeRec(){
+  $("pauseOv").hidden = true;
+  if (S.cd) { $("count").hidden = false; for (let n = Math.min(3, S.cd); n > 0; n--) { $("count").textContent = n; await sleep(700); } $("count").hidden = true; }
+  if (!recording) return;
+  pausedTotal += performance.now() - pauseAt; recPaused = false;
+  try { recorder.resume(); } catch(e){}
+  startSpeech();
+}
+$("recPause").onclick = pauseRec;
+$("pvResume").onclick = resumeRec;
+$("pvFinish").onclick = () => stopRec(false);
+$("pvRestart").onclick = () => {
+  stopRec(true); speechSegs = [];
+  pPos = 0; pPaused = false; lastCur = -2; times = new Array(chunks.length).fill(null);
+  for (const el of lineEls) el.className = "pl";
+  toast("הצילום נמחק. מתחילים מחדש…");
+  countdown();
+};
+$("pvExit").onclick = () => { if (!confirm("למחוק את הצילום ולצאת?")) return; stopRec(true); closeRec(); show("home"); };
 
 // ---- quick speech recognition while recording (browser built-in; optional)
 let sr = null, srOn = false, segStart = {};
@@ -661,14 +707,14 @@ function startSpeech(){
   try {
     sr = new SR(); sr.lang = "he-IL"; sr.continuous = true; sr.interimResults = true; srOn = true; sr._b = Date.now(); segStart = {};
     sr.onresult = e => {
-      const t = (performance.now() - t0) / 1000;
+      const t = recT();
       for (let i = e.resultIndex; i < e.results.length; i++) {
         const key = sr._b + "_" + i;
         if (segStart[key] === undefined) segStart[key] = Math.max(0, t - 0.7);
         if (e.results[i].isFinal) { const txt = e.results[i][0].transcript.trim(); if (txt) speechSegs.push(...splitTimed(txt, segStart[key], t)); }
       }
     };
-    sr.onend = () => { if (srOn && recording) { try { sr._b = Date.now(); sr.start(); } catch(e){} } };
+    sr.onend = () => { if (srOn && recording && !recPaused) { try { sr._b = Date.now(); sr.start(); } catch(e){} } };
     sr.onerror = () => {};
     sr.start();
   } catch(e){ sr = null; }

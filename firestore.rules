@@ -68,7 +68,13 @@ service cloud.firestore {
           && request.resource.data.photo is string && request.resource.data.photo.size() <= 300000
           && (request.resource.data.text.size() > 0 || request.resource.data.photo.size() > 0)
           && !blockedBy(otherIn(chat().members));
-        allow update, delete: if false;
+        // the sender may remove the photo from their own message, for both sides (text stays)
+        allow update: if request.auth != null && request.auth.uid in chat().members
+          && resource.data.from == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['photo','photoDeleted'])
+          && request.resource.data.photo == ''
+          && request.resource.data.photoDeleted == true;
+        allow delete: if false;
       }
     }
   }

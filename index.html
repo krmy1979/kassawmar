@@ -82,6 +82,11 @@ input{font:inherit;font-family:var(--mono);font-size:26px;letter-spacing:.12em;t
 .bub.me{align-self:flex-end;background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
 .bub img{display:block;max-width:100%;max-height:260px;border-radius:10px;cursor:zoom-in;margin-bottom:4px}
 .bub .tm{font-size:11px;opacity:.7;margin-top:2px;text-align:left}
+.bub .gone{font-style:italic;opacity:.75;font-size:14px}
+.bub .del{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:2px 0 4px;font-size:13px}
+.bub .del button{font-size:13px;padding:4px 10px;border-radius:999px}
+.bub.me .del button{background:transparent;color:var(--accent-fg);border-color:currentColor}
+.bub.me .del button.yes{background:var(--danger);border-color:var(--danger);color:#fff}
 .composer{display:flex;gap:6px;align-items:flex-end}
 .composer textarea{flex:1;font:inherit;font-size:16px;min-height:44px;max-height:120px;resize:none;padding:10px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--fg)}
 .photoprev{position:relative;align-self:flex-start}
@@ -840,6 +845,11 @@ function renderMsgs(list){
       const img = document.createElement("img"); img.src = m.photo; img.alt = "תמונה"; img.loading = "lazy";
       img.onclick = () => { $("lightboxImg").src = m.photo; $("lightbox").hidden = false; };
       b.appendChild(img);
+      if (m.from === user.uid) b.appendChild(photoDeleteControl(m, list));
+    } else if (m.photoDeleted) {
+      const g = document.createElement("div"); g.className = "gone";
+      g.textContent = m.from === user.uid ? "🚫 מחקת את התמונה" : "🚫 התמונה נמחקה על ידי השולח";
+      b.appendChild(g);
     }
     if (m.text) { const t = document.createElement("div"); t.textContent = m.text; b.appendChild(t); }
     const tm = document.createElement("div"); tm.className = "tm"; tm.textContent = hhmm(m.at); b.appendChild(tm);
@@ -847,6 +857,39 @@ function renderMsgs(list){
   }
   if (atBottom || list.length && list[list.length - 1].from === user.uid) box.scrollTop = box.scrollHeight;
 }
+// delete a photo I sent, for both sides: the message keeps its text, the photo is removed from the database
+function photoDeleteControl(m, list){
+  const box = document.createElement("div"); box.className = "del";
+  const ask = document.createElement("button"); ask.textContent = "🗑 מחק תמונה";
+  const q = document.createElement("span"); q.textContent = "למחוק אצל שניכם?"; q.hidden = true;
+  const yes = document.createElement("button"); yes.className = "yes"; yes.textContent = "מחק"; yes.hidden = true;
+  const no = document.createElement("button"); no.textContent = "ביטול"; no.hidden = true;
+  const toggle = on => { ask.hidden = on; q.hidden = yes.hidden = no.hidden = !on; };
+  ask.onclick = () => toggle(true);
+  no.onclick = () => toggle(false);
+  yes.onclick = async () => {
+    yes.disabled = no.disabled = true; $("chatErr").textContent = "";
+    const { F, db } = fb;
+    try {
+      const b = F.writeBatch(db);
+      b.update(F.doc(db, "chats", openChat, "messages", m.id), { photo: "", photoDeleted: true });
+      const latest = list[list.length - 1];
+      const c = chats.find(x => x.id === openChat);
+      if (latest && latest.id === m.id && c && c.last && c.last.from === user.uid)
+        b.update(F.doc(db, "chats", openChat), { last: { ...c.last, photo: false, text: m.text ? c.last.text : "🚫 תמונה נמחקה" } });
+      if ($("lightboxImg").src === m.photo) { $("lightbox").hidden = true; $("lightboxImg").src = ""; }
+      await b.commit();
+    } catch(e){
+      yes.disabled = no.disabled = false;
+      $("chatErr").textContent = e && e.code === "permission-denied"
+        ? "לא הצלחתי למחוק. צריך לעדכן את כללי האבטחה ב־Firebase (ראה הסבר)."
+        : "לא הצלחתי למחוק. בדוק חיבור לאינטרנט ונסה שוב.";
+    }
+  };
+  box.append(ask, q, yes, no);
+  return box;
+}
+
 $("lightbox").onclick = () => { $("lightbox").hidden = true; $("lightboxImg").src = ""; };
 
 function markRead(){

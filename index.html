@@ -4,6 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>kassawmar</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0f8a6a">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="kassawmar">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700&family=JetBrains+Mono:wght@500&display=swap">
 <style>
@@ -94,6 +101,22 @@ input{font:inherit;font-family:var(--mono);font-size:26px;letter-spacing:.12em;t
 #lightbox{position:fixed;inset:0;background:rgba(0,0,0,.88);display:flex;align-items:center;justify-content:center;z-index:50;padding:16px;cursor:zoom-out}
 #lightbox img{max-width:100%;max-height:100%}
 #pickBox input{font-size:22px}
+.bub audio{display:block;width:230px;max-width:100%;height:40px;margin-bottom:4px}
+.bub .exp{font-size:11px;opacity:.7}
+.ticks{margin-inline-start:6px;letter-spacing:-2px}
+.ticks.read{color:#53bdeb}
+.bub.me .ticks.read{color:#bdf3ff}
+.chathead .sub{display:block;font-size:12px;color:var(--accent);font-weight:400;min-height:1em}
+.recbar{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--danger);border-radius:12px}
+.recbar .dot{width:10px;height:10px;border-radius:50%;background:var(--danger);animation:blink 1s infinite}
+.recbar .t{flex:1;font-family:var(--mono);font-variant-numeric:tabular-nums}
+@keyframes blink{50%{opacity:.25}}
+@media (prefers-reduced-motion:reduce){.recbar .dot{animation:none}}
+.videowrap{position:relative;width:100%;aspect-ratio:3/4;max-width:100%;background:#000;border-radius:14px;overflow:hidden}
+.videowrap #remoteVideo{width:100%;height:100%;object-fit:cover}
+.videowrap #localVideo{position:absolute;width:30%;aspect-ratio:3/4;object-fit:cover;bottom:10px;inset-inline-end:10px;border-radius:10px;border:2px solid #fff;background:#222;transform:scaleX(-1)}
+.videowrap .vnote{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#cfd8d5;font-size:14px;text-align:center;padding:16px}
+.mediahint{font-size:12px;color:var(--muted);text-align:center}
 </style>
 </head>
 <body>
@@ -133,6 +156,8 @@ input{font:inherit;font-family:var(--mono);font-size:26px;letter-spacing:.12em;t
       </div>
       <div class="toast" id="pickMsg" role="status"></div>
     </div>
+    <button id="installBtn" hidden>📲 התקן כאפליקציה במסך הבית</button>
+    <div class="note" id="iosHint" hidden>📲 להתקנה באייפון: לחץ על כפתור השיתוף <b>⬆︎</b> בתחתית Safari, ובחר <b>"הוסף למסך הבית"</b>.</div>
     <button class="primary" id="shareBtn" hidden>העתק קישור הזמנה (מי שלוחץ עליו מתקשר אליך)</button>
     <div class="row" style="align-items:center;justify-content:space-between">
       <span class="note" id="whoami"></span>
@@ -156,7 +181,8 @@ input{font:inherit;font-family:var(--mono);font-size:26px;letter-spacing:.12em;t
     <div class="pad" id="pad"></div>
     <div class="row">
       <button id="delBtn">מחק</button>
-      <button class="primary grow" id="callBtn">התקשר</button>
+      <button class="primary grow" id="callBtn">📞 התקשר</button>
+      <button class="primary" id="videoCallBtn" title="שיחת וידאו">📹 וידאו</button>
     </div>
     <div class="toast" id="toast" role="status"></div>
   </section>
@@ -189,30 +215,39 @@ input{font:inherit;font-family:var(--mono);font-size:26px;letter-spacing:.12em;t
   <section class="card" id="chatCard" hidden>
     <div class="chathead">
       <button class="small" id="chatBack" aria-label="חזרה לרשימת השיחות">→ חזרה</button>
-      <div class="t" id="chatTitle"></div>
-      <button class="small primary" id="chatCall">📞 התקשר</button>
+      <div class="t"><span id="chatTitle"></span><span class="sub" id="chatSub"></span></div>
+      <button class="small primary" id="chatCall" title="שיחה קולית" aria-label="שיחה קולית">📞</button>
+      <button class="small primary" id="chatVideo" title="שיחת וידאו" aria-label="שיחת וידאו">📹</button>
     </div>
     <div class="msgs" id="msgs" aria-live="polite"></div>
     <div class="photoprev" id="photoPrevWrap" hidden>
       <img id="photoPrev" alt="התמונה שתישלח">
       <button class="small" id="photoClear">הסר תמונה</button>
     </div>
-    <div class="composer">
+    <div class="recbar" id="recBar" hidden>
+      <span class="dot"></span><span class="t" id="recTime">0:00</span>
+      <button class="small" id="recCancel">בטל</button>
+      <button class="small primary" id="recSend">שלח הקלטה</button>
+    </div>
+    <div class="composer" id="composer">
+      <button id="micRecBtn" aria-label="הקלט הודעה קולית" title="הקלט הודעה קולית (עד דקה)">🎤</button>
       <button id="photoBtn" aria-label="צרף תמונה או צלם" title="צרף תמונה או צלם">📷</button>
       <input type="file" id="photoInput" accept="image/*" hidden>
       <textarea id="msgInput" rows="1" maxlength="2000" placeholder="כתוב הודעה…"></textarea>
       <button class="primary" id="sendBtn">שלח</button>
     </div>
     <div class="toast" id="chatErr" role="status"></div>
+    <div class="mediahint">⌛ תמונות והודעות קוליות נמחקות אוטומטית אצל שניכם אחרי 7 ימים</div>
   </section>
 
   <section class="card callscreen" id="incomingCard" hidden>
-    <div class="label">שיחה נכנסת</div>
+    <div class="label" id="incomingLabel">שיחה נכנסת</div>
     <div class="who" id="incomingWho"></div>
     <div class="row" style="width:100%">
       <button class="danger grow" id="rejectBtn">דחה</button>
       <button class="primary grow" id="answerBtn">ענה</button>
     </div>
+    <button id="answerAudioBtn" hidden style="width:100%">ענה בקול בלבד (בלי מצלמה)</button>
     <button class="small" id="blockIncomingBtn">חסום את המספר הזה</button>
   </section>
 
@@ -220,7 +255,13 @@ input{font:inherit;font-family:var(--mono);font-size:26px;letter-spacing:.12em;t
     <div class="label" id="callLabel">מתקשר…</div>
     <div class="who" id="callWho"></div>
     <div class="timer" id="timer">00:00</div>
-    <div style="width:100%">
+    <div class="toast" id="callToast" role="status"></div>
+    <div class="videowrap" id="videoWrap" hidden>
+      <video id="remoteVideo" playsinline autoplay muted></video>
+      <div class="vnote" id="remoteVideoNote">הצד השני ענה בלי מצלמה</div>
+      <video id="localVideo" playsinline autoplay muted></video>
+    </div>
+    <div style="width:100%" id="remoteMeterWrap">
       <div class="label" style="margin-bottom:4px">הקול של הצד השני</div>
       <div class="meter"><div id="remoteBar" style="height:100%;width:0;background:var(--accent);transition:width .08s"></div></div>
     </div>
@@ -233,6 +274,10 @@ input{font:inherit;font-family:var(--mono);font-size:26px;letter-spacing:.12em;t
     <div class="row" style="width:100%">
       <button class="grow" id="muteBtn">השתק</button>
       <button class="danger grow" id="hangBtn">נתק</button>
+    </div>
+    <div class="row" style="width:100%" id="camRow" hidden>
+      <button class="grow" id="camBtn">כבה מצלמה</button>
+      <button class="grow" id="flipBtn">🔄 החלף מצלמה</button>
     </div>
   </section>
 
@@ -373,8 +418,10 @@ async function handleIncoming(call){
   const num = prof.exists() ? prof.data().num : null;
   if (!num || blocked.includes(num)) { call.close(); return; }                          // blocked
   if (currentCall || pendingCall) { call.close(); return; }
-  pendingCall = call; call._num = num;
+  pendingCall = call; call._num = num; call._video = !!md.video;
   $("incomingWho").textContent = label(num);
+  $("incomingLabel").textContent = call._video ? "📹 שיחת וידאו נכנסת" : "שיחה נכנסת";
+  $("answerAudioBtn").hidden = !call._video;
   show("incoming");
   ring(true);
   call.on("close", () => { if (pendingCall === call) { pendingCall = null; ring(false); if (!currentCall) show("idle"); } });
@@ -395,10 +442,28 @@ function micErrorText(e){
   return "לא הצלחתי לפתוח את המיקרופון (" + (n || "שגיאה") + "). נסה לרענן את הדף.";
 }
 
-async function getMic(){
-  if (localStream && localStream.getAudioTracks().some(t => t.readyState === "live")) return localStream;
+const AUDIO_C = { echoCancellation:true, noiseSuppression:true };
+let camNote = false;
+let facing = "user";
+const videoC = () => ({ facingMode: facing, width: { ideal: 640 }, height: { ideal: 480 } });
+async function getMic(){ return getMedia(false); }
+// withVideo: also open the camera. If the camera is refused, the call continues with sound only.
+async function getMedia(withVideo){
+  const live = t => t.readyState === "live" && !t.muted;
+  if (localStream && localStream.getAudioTracks().some(live) && (!withVideo || localStream.getVideoTracks().some(live))) return localStream;
   if (inApp || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw { name: "Unsupported" };
-  localStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation:true, noiseSuppression:true }, video:false });
+  if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
+  if (withVideo) {
+    try { localStream = await navigator.mediaDevices.getUserMedia({ audio: AUDIO_C, video: videoC() }); }
+    catch(e){
+      if (e && (e.name === "NotFoundError" || e.name === "NotAllowedError" || e.name === "NotReadableError" || e.name === "OverconstrainedError")) {
+        localStream = await navigator.mediaDevices.getUserMedia({ audio: AUDIO_C, video: false });
+        toast("אין גישה למצלמה, ממשיכים בקול בלבד."); camNote = true;
+      } else throw e;
+    }
+  } else {
+    localStream = await navigator.mediaDevices.getUserMedia({ audio: AUDIO_C, video: false });
+  }
   startMeter(localStream);
   $("micState").textContent = "המיקרופון עובד ✓"; $("micState").className = "note ok";
   $("micHelp").textContent = "";
@@ -471,11 +536,15 @@ function wireCall(call, label_, num){
   if (label_ === "מתקשר…") noAnswerTimer = setTimeout(() => {
     if (currentCall === call && $("callLabel").textContent !== "בשיחה") { toast("אין מענה."); endCall(); }
   }, 45000);
+  showLocalVideo();
+  $("callToast").textContent = camNote ? "אין גישה למצלמה, השיחה בקול בלבד." : ""; camNote = false;
   call.on("stream", remote => {
-    if (currentCall !== call) return;
+    if (currentCall !== call || call._gotStream) return;
+    call._gotStream = true;
     clearTimeout(noAnswerTimer);
     lastPeer = num;
     playRemote(remote);
+    showRemoteVideo(remote);
     $("callLabel").textContent = "בשיחה";
     startTimer();
     showSafety(call);
@@ -504,6 +573,55 @@ function watchConnection(call, onEnd){
   };
   attach();
 }
+
+// ---- video on the call screen (sound always plays through the hidden <audio>, so the videos stay muted)
+const hasVideo = s => !!s && s.getVideoTracks().some(t => t.readyState === "live");
+function showLocalVideo(){
+  const on = hasVideo(localStream);
+  $("localVideo").srcObject = on ? localStream : null;
+  $("localVideo").hidden = !on;
+  $("camRow").hidden = !on;
+  $("flipBtn").hidden = !on || !(navigator.maxTouchPoints > 0);
+  $("camBtn").textContent = "כבה מצלמה";
+  $("remoteVideoNote").hidden = true;
+  if (on) { $("videoWrap").hidden = false; $("remoteMeterWrap").hidden = true; $("localVideo").play().catch(() => {}); }
+}
+function showRemoteVideo(remote){
+  const rv = $("remoteVideo"), on = hasVideo(remote);
+  if (on) { rv.srcObject = remote; rv.play().catch(() => {}); }
+  $("remoteVideoNote").hidden = on;
+  if (on || hasVideo(localStream)) { $("videoWrap").hidden = false; $("remoteMeterWrap").hidden = true; }
+}
+function clearVideo(){
+  $("remoteVideo").srcObject = null; $("localVideo").srcObject = null;
+  $("videoWrap").hidden = true; $("camRow").hidden = true; $("remoteMeterWrap").hidden = false;
+}
+$("camBtn").onclick = () => {
+  const v = localStream && localStream.getVideoTracks()[0]; if (!v) return;
+  v.enabled = !v.enabled;
+  $("camBtn").textContent = v.enabled ? "כבה מצלמה" : "הדלק מצלמה";
+  $("localVideo").style.visibility = v.enabled ? "visible" : "hidden";
+};
+$("flipBtn").onclick = async () => {
+  const old = localStream && localStream.getVideoTracks()[0]; if (!old || !currentCall) return;
+  const was = facing, wasOn = old.enabled;
+  const sender = currentCall.peerConnection && currentCall.peerConnection.getSenders().find(x => x.track && x.track.kind === "video");
+  const grab = async f => (await navigator.mediaDevices.getUserMedia({ audio: false,
+    video: { facingMode: { exact: f }, width: { ideal: 640 }, height: { ideal: 480 } } })).getVideoTracks()[0];
+  $("flipBtn").disabled = true;
+  old.stop(); localStream.removeTrack(old);          // many Android phones can't open two cameras at once
+  let nt = null;
+  try { facing = was === "user" ? "environment" : "user"; nt = await grab(facing); }
+  catch(e){ facing = was; toast("לא הצלחתי להחליף מצלמה."); try { nt = await grab(facing); } catch(e2){ nt = null; } }
+  if (nt) {
+    nt.enabled = wasOn;
+    localStream.addTrack(nt);
+    try { if (sender) await sender.replaceTrack(nt); } catch(e){}
+    $("localVideo").srcObject = localStream;
+    $("localVideo").style.transform = facing === "user" ? "scaleX(-1)" : "none";
+  }
+  $("flipBtn").disabled = false;
+};
 
 let remoteRaf;
 function playRemote(remote){
@@ -566,12 +684,17 @@ function endCall(){
   if (peer && !peer.destroyed && peer.disconnected) { try{ peer.reconnect(); }catch(e){} }
   $("remoteAudio").srcObject = null;
   cancelAnimationFrame(remoteRaf); $("remoteBar").style.width = "0"; $("playBtn").hidden = true;
+  clearVideo(); facing = "user"; $("localVideo").style.transform = ""; $("localVideo").style.visibility = "visible";
+  if (openChat) markRead();
   if (lastPeer && !contacts.some(c => c.n === lastPeer)) offerSave(lastPeer);
   lastPeer = null;
 }
 
-$("callBtn").onclick = async () => {
+$("callBtn").onclick = () => placeCall(false);
+$("videoCallBtn").onclick = () => placeCall(true);
+async function placeCall(video){
   toast("");
+  if (rec) cancelRec();
   const code = normNum($("dialInput").value);
   if (!code) { toast("המספר צריך להיות 099 ועוד 7 ספרות."); return; }
   if (code === myNum) { toast("זה המספר שלך. הזן את המספר של הצד השני."); return; }
@@ -586,18 +709,22 @@ $("callBtn").onclick = async () => {
     target = psnap.exists() && psnap.data().num === code ? psnap.data().peer : null;
     if (!target) { toast("המספר לא מחובר כרגע."); return; }
   } catch(e){ toast("לא הצלחתי לבדוק את המספר. בדוק חיבור לאינטרנט."); return; }
-  try{ await getMic(); }catch(e){ micFail(e); toast("אי אפשר להתקשר בלי מיקרופון. ראה הסבר למעלה."); return; }
+  try{ await getMedia(video); }catch(e){ micFail(e); toast("אי אפשר להתקשר בלי מיקרופון. ראה הסבר למעלה."); return; }
   const token = await user.getIdToken();
-  wireCall(peer.call(target, localStream, { metadata: { token } }), "מתקשר…", code);
-};
-$("answerBtn").onclick = async () => {
+  const withVideo = hasVideo(localStream);
+  wireCall(peer.call(target, localStream, { metadata: { token, video: withVideo } }), "מתקשר…", code);
+}
+$("answerBtn").onclick = () => answerCall(true);
+$("answerAudioBtn").onclick = () => answerCall(false);
+async function answerCall(allowVideo){
   ring(false);
+  if (rec) cancelRec();
   const call = pendingCall; pendingCall = null;
   if (!call) return;
-  try{ await getMic(); }catch(e){ call.close(); show("idle"); micFail(e); toast("אי אפשר לענות בלי מיקרופון. ראה הסבר למעלה."); return; }
+  try{ await getMedia(allowVideo && call._video); }catch(e){ call.close(); show("idle"); micFail(e); toast("אי אפשר לענות בלי מיקרופון. ראה הסבר למעלה."); return; }
   call.answer(localStream);
   wireCall(call, "מתחבר…", call._num);
-};
+}
 $("rejectBtn").onclick = () => { ring(false); if (pendingCall){ pendingCall.close(); pendingCall = null; } show("idle"); };
 $("blockIncomingBtn").onclick = () => {
   const c = pendingCall; if (!c) return;
@@ -713,6 +840,20 @@ if (isWeb) {
   if (want) { $("dialInput").value = fmt(want); $("callBtn").textContent = "התקשר ל־" + fmt(want); }
 }
 
+// ---- install as an app (home-screen icon, full screen)
+let installEvt = null;
+const standalone = () => matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+if ("serviceWorker" in navigator && isWeb) navigator.serviceWorker.register("sw.js").catch(() => {});
+addEventListener("beforeinstallprompt", e => { e.preventDefault(); installEvt = e; if (!standalone()) $("installBtn").hidden = false; });
+addEventListener("appinstalled", () => { installEvt = null; $("installBtn").hidden = true; toast("kassawmar הותקנה במסך הבית ✓"); });
+$("installBtn").onclick = async () => {
+  if (!installEvt) return;
+  installEvt.prompt();
+  try { await installEvt.userChoice; } catch(e){}
+  installEvt = null; $("installBtn").hidden = true;
+};
+if (/iPhone|iPad|iPod/i.test(UA) && !standalone() && !inApp) $("iosHint").hidden = false;
+
 $("loginBtn").onclick = signIn;
 $("logoutBtn").onclick = async () => {
   if (!confirm("להתנתק? המספר נשאר שלך ותקבל אותו שוב כשתתחבר.")) return;
@@ -722,9 +863,14 @@ $("logoutBtn").onclick = async () => {
 
 
 // ---------------- Messages (chat + photos) ----------------
-// chats/{uidA_uidB}: { members:[a,b] sorted, nums:{uid:num}, last:{from,text,photo,at}, read:{uid:ts}, createdAt, updatedAt }
-// chats/{id}/messages/{msgId}: { from, text, photo (small jpeg data URL), at }
+// chats/{uidA_uidB}: { members:[a,b] sorted, nums:{uid:num}, last:{from,text,photo,audio,at}, read:{uid:ts}, typing:{uid:ts}, createdAt, updatedAt }
+// chats/{id}/messages/{msgId}: { from, text, photo (small jpeg data URL), audio (short voice data URL), at,
+//                               photoDeleted / audioDeleted (removed by sender), mediaExpired (removed after 7 days) }
 let curTab = "calls", openChat = null, unsubChats = null, unsubMsgs = null, chats = [], chatPhoto = null, chatsLoaded = false;
+const MEDIA_TTL = 7 * 24 * 3600e3;            // photos and voice messages disappear after 7 days
+const lastSeenAt = {};                         // chat id -> time of the last message we already beeped for
+let curMsgs = [];
+const expiring = new Set();
 const chatIdFor = (a, b) => [a, b].sort().join("_");
 const tsOf = t => t && t.toMillis ? t.toMillis() : Date.now();
 const otherOf = c => c.members.find(m => m !== user.uid);
@@ -745,10 +891,12 @@ function setTab(t){
   curTab = t;
   for (const b of $("mainTabs").querySelectorAll("button")) b.classList.toggle("on", b.dataset.tab === t);
   if (!currentCall && !pendingCall) show("idle");
+  if (t === "msgs" && openChat) markRead();
 }
 $("mainTabs").addEventListener("click", e => { const b = e.target.closest("button"); if (b) setTab(b.dataset.tab); });
 
 function stopMessaging(){
+  if (rec) cancelRec();
   if (unsubChats) { unsubChats(); unsubChats = null; }
   if (unsubMsgs) { unsubMsgs(); unsubMsgs = null; }
   chats = []; openChat = null; chatsLoaded = false; curTab = "calls";
@@ -759,16 +907,16 @@ function watchChats(){
   unsubChats = F.onSnapshot(F.query(F.collection(db, "chats"), F.where("members", "array-contains", user.uid)), snap => {
     chats = snap.docs.map(d => ({ id: d.id, ...d.data({ serverTimestamps: "estimate" }) }))
       .sort((a, b) => tsOf(b.updatedAt) - tsOf(a.updatedAt));
-    if (chatsLoaded) {
-      for (const ch of snap.docChanges()) {
-        const c = chats.find(x => x.id === ch.doc.id);
-        if (c && isUnread(c) && !(curTab === "msgs" && openChat === c.id)) {
-          msgBeep(); toast("הודעה חדשה מ־" + chatLabel(c));
-        }
+    for (const c of chats) {
+      const at = c.last && c.last.at ? tsOf(c.last.at) : 0;
+      if (chatsLoaded && at > (lastSeenAt[c.id] || 0) && isUnread(c) && !(curTab === "msgs" && openChat === c.id)) {
+        msgBeep(); toast("הודעה חדשה מ־" + chatLabel(c));
       }
+      lastSeenAt[c.id] = Math.max(lastSeenAt[c.id] || 0, at);
     }
     chatsLoaded = true;
     renderChats();
+    if (openChat) { updateTicks(); updateTyping(); markRead(); }
   }, () => { $("noChats").textContent = "לא הצלחתי לטעון הודעות."; $("noChats").hidden = false; });
 }
 
@@ -784,7 +932,7 @@ function renderChats(){
     const tm = document.createElement("span"); tm.className = "tm"; tm.textContent = c.last ? dayOrTime(c.last.at) : "";
     top.append(nm, tm);
     const lm = document.createElement("div"); lm.className = "lm";
-    lm.textContent = c.last ? (c.last.from === user.uid ? "אתה: " : "") + (c.last.text || (c.last.photo ? "📷 תמונה" : "")) : "שיחה חדשה";
+    lm.textContent = c.last ? (c.last.from === user.uid ? "אתה: " : "") + (c.last.text || (c.last.photo ? "📷 תמונה" : c.last.audio ? "🎤 הודעה קולית" : "")) : "שיחה חדשה";
     row.append(top, lm);
     row.onclick = () => openChatWith(c.id);
     box.appendChild(row);
@@ -816,7 +964,8 @@ $("newChatBtn").onclick = () => startChatByNum(normNum($("newChatInput").value))
 $("newChatInput").addEventListener("keydown", e => { if (e.key === "Enter") $("newChatBtn").click(); });
 
 function openChatWith(id){
-  openChat = id; clearPhoto(); $("chatErr").textContent = "";
+  if (rec) cancelRec();
+  openChat = id; clearPhoto(); $("chatErr").textContent = ""; $("chatSub").textContent = ""; curMsgs = [];
   const c = chats.find(x => x.id === id);
   $("chatTitle").textContent = c ? chatLabel(c) : "";
   $("msgs").textContent = "";
@@ -824,43 +973,93 @@ function openChatWith(id){
   const { F, db } = fb;
   if (unsubMsgs) unsubMsgs();
   unsubMsgs = F.onSnapshot(F.query(F.collection(db, "chats", id, "messages"), F.orderBy("at"), F.limitToLast(100)), snap => {
-    renderMsgs(snap.docs.map(d => ({ id: d.id, ...d.data({ serverTimestamps: "estimate" }) })));
+    renderMsgs(snap.docs.map(d => ({ id: d.id, pending: d.metadata.hasPendingWrites, ...d.data({ serverTimestamps: "estimate" }) })));
     markRead();
   }, () => { $("chatErr").textContent = "לא הצלחתי לטעון את ההודעות."; });
   setTimeout(() => $("msgInput").focus(), 50);
 }
-$("chatBack").onclick = () => { if (unsubMsgs) { unsubMsgs(); unsubMsgs = null; } openChat = null; show("idle"); };
-$("chatCall").onclick = () => {
+$("chatBack").onclick = () => { if (rec) cancelRec(); if (unsubMsgs) { unsubMsgs(); unsubMsgs = null; } openChat = null; curMsgs = []; show("idle"); };
+function callFromChat(video){
   const c = chats.find(x => x.id === openChat); if (!c) return;
-  $("dialInput").value = fmt(chatNum(c)); setTab("calls"); $("callBtn").click();
-};
+  $("dialInput").value = fmt(chatNum(c)); setTab("calls"); placeCall(video);
+}
+$("chatCall").onclick = () => callFromChat(false);
+$("chatVideo").onclick = () => callFromChat(true);
+
+const isPhoto = v => typeof v === "string" && /^data:image\/jpeg;base64,/.test(v);
+const isAudio = v => typeof v === "string" && /^data:audio\/(webm|ogg|mp4|mpeg|aac|x-m4a)[;,]/.test(v);
+function daysLeft(m){ return Math.max(1, Math.ceil((tsOf(m.at) + MEDIA_TTL - Date.now()) / 864e5)); }
 
 function renderMsgs(list){
+  curMsgs = list;
   const box = $("msgs"), atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
+  // keep a voice message playing: if only ticks/typing changed we don't rebuild (see updateTicks)
+  const playing = [...box.querySelectorAll("audio")].some(a => !a.paused);
+  if (playing && box.childElementCount === list.length) { updateTicks(); return; }
   box.textContent = "";
   if (!list.length) { const p = document.createElement("div"); p.className = "note"; p.style.textAlign = "center"; p.textContent = "אין עדיין הודעות. כתוב משהו!"; box.appendChild(p); }
   for (const m of list) {
-    const b = document.createElement("div"); b.className = "bub" + (m.from === user.uid ? " me" : "");
-    if (m.photo && /^data:image\/jpeg;base64,/.test(m.photo)) {
+    const mine = m.from === user.uid;
+    const b = document.createElement("div"); b.className = "bub" + (mine ? " me" : "");
+    const old = Date.now() - tsOf(m.at) > MEDIA_TTL;
+    if ((m.photo || m.audio) && old) {
+      expireMedia(m);
+      const g = document.createElement("div"); g.className = "gone";
+      g.textContent = "⌛ " + (m.audio ? "ההודעה הקולית" : "התמונה") + " נמחקה אוטומטית (עברו 7 ימים)";
+      b.appendChild(g);
+    } else if (isPhoto(m.photo)) {
       const img = document.createElement("img"); img.src = m.photo; img.alt = "תמונה"; img.loading = "lazy";
       img.onclick = () => { $("lightboxImg").src = m.photo; $("lightbox").hidden = false; };
       b.appendChild(img);
-      if (m.from === user.uid) b.appendChild(photoDeleteControl(m, list));
-    } else if (m.photoDeleted) {
+      const e = document.createElement("div"); e.className = "exp"; e.textContent = "⌛ תימחק בעוד " + daysLeft(m) + " ימים"; b.appendChild(e);
+      if (mine) b.appendChild(mediaDeleteControl(m, list, "photo"));
+    } else if (isAudio(m.audio)) {
+      const a = document.createElement("audio"); a.controls = true; a.preload = "metadata"; a.src = m.audio;
+      b.appendChild(a);
+      const e = document.createElement("div"); e.className = "exp"; e.textContent = "🎤 הודעה קולית · ⌛ תימחק בעוד " + daysLeft(m) + " ימים"; b.appendChild(e);
+      if (mine) b.appendChild(mediaDeleteControl(m, list, "audio"));
+    } else if (m.photoDeleted || m.audioDeleted) {
       const g = document.createElement("div"); g.className = "gone";
-      g.textContent = m.from === user.uid ? "🚫 מחקת את התמונה" : "🚫 התמונה נמחקה על ידי השולח";
+      const what = m.audioDeleted ? "ההודעה הקולית" : "התמונה";
+      g.textContent = mine ? "🚫 מחקת את " + what : "🚫 " + what + " נמחקה על ידי השולח";
       b.appendChild(g);
+    } else if (m.mediaExpired) {
+      const g = document.createElement("div"); g.className = "gone"; g.textContent = "⌛ נמחק אוטומטית (עברו 7 ימים)"; b.appendChild(g);
     }
     if (m.text) { const t = document.createElement("div"); t.textContent = m.text; b.appendChild(t); }
-    const tm = document.createElement("div"); tm.className = "tm"; tm.textContent = hhmm(m.at); b.appendChild(tm);
+    const tm = document.createElement("div"); tm.className = "tm"; tm.textContent = hhmm(m.at);
+    if (mine) { const k = document.createElement("span"); k.className = "ticks"; k.dataset.id = m.id; tm.appendChild(k); }
+    b.appendChild(tm);
     box.appendChild(b);
   }
+  updateTicks();
   if (atBottom || list.length && list[list.length - 1].from === user.uid) box.scrollTop = box.scrollHeight;
 }
-// delete a photo I sent, for both sides: the message keeps its text, the photo is removed from the database
-function photoDeleteControl(m, list){
+
+// ✓ sent, ✓✓ read (blue) — based on when the other side last opened the chat
+function updateTicks(){
+  const c = chats.find(x => x.id === openChat); if (!c) return;
+  const r = c.read && c.read[otherOf(c)], readAt = r ? tsOf(r) : 0;
+  for (const k of $("msgs").querySelectorAll(".ticks")) {
+    const m = curMsgs.find(x => x.id === k.dataset.id); if (!m) continue;
+    if (m.pending) { k.textContent = "🕓"; k.className = "ticks"; k.title = "נשלח…"; }
+    else if (readAt && readAt >= tsOf(m.at)) { k.textContent = "✓✓"; k.className = "ticks read"; k.title = "נקרא"; }
+    else { k.textContent = "✓"; k.className = "ticks"; k.title = "נשלח"; }
+  }
+}
+
+// remove photos / voice older than 7 days from the database (either side may do it, the rules check the age)
+function expireMedia(m){
+  if (expiring.has(m.id) || !openChat) return;
+  expiring.add(m.id);
+  const { F, db } = fb;
+  F.updateDoc(F.doc(db, "chats", openChat, "messages", m.id), { photo: "", audio: "", mediaExpired: true }).catch(() => {});
+}
+
+// delete a photo or voice message I sent, for both sides (text stays)
+function mediaDeleteControl(m, list, kind){
   const box = document.createElement("div"); box.className = "del";
-  const ask = document.createElement("button"); ask.textContent = "🗑 מחק תמונה";
+  const ask = document.createElement("button"); ask.textContent = kind === "audio" ? "🗑 מחק הקלטה" : "🗑 מחק תמונה";
   const q = document.createElement("span"); q.textContent = "למחוק אצל שניכם?"; q.hidden = true;
   const yes = document.createElement("button"); yes.className = "yes"; yes.textContent = "מחק"; yes.hidden = true;
   const no = document.createElement("button"); no.textContent = "ביטול"; no.hidden = true;
@@ -870,15 +1069,16 @@ function photoDeleteControl(m, list){
   yes.onclick = async () => {
     yes.disabled = no.disabled = true; $("chatErr").textContent = "";
     const { F, db } = fb;
+    const chatId = openChat;
     try {
-      const b = F.writeBatch(db);
-      b.update(F.doc(db, "chats", openChat, "messages", m.id), { photo: "", photoDeleted: true });
+      await F.updateDoc(F.doc(db, "chats", chatId, "messages", m.id),
+        kind === "audio" ? { audio: "", audioDeleted: true } : { photo: "", photoDeleted: true });
+      if (kind === "photo" && $("lightboxImg").src === m.photo) { $("lightbox").hidden = true; $("lightboxImg").src = ""; }
       const latest = list[list.length - 1];
-      const c = chats.find(x => x.id === openChat);
+      const c = chats.find(x => x.id === chatId);
       if (latest && latest.id === m.id && c && c.last && c.last.from === user.uid)
-        b.update(F.doc(db, "chats", openChat), { last: { ...c.last, photo: false, text: m.text ? c.last.text : "🚫 תמונה נמחקה" } });
-      if ($("lightboxImg").src === m.photo) { $("lightbox").hidden = true; $("lightboxImg").src = ""; }
-      await b.commit();
+        F.updateDoc(F.doc(db, "chats", chatId), { last: { ...c.last, photo: false, audio: false,
+          text: m.text ? c.last.text : (kind === "audio" ? "🚫 הודעה קולית נמחקה" : "🚫 תמונה נמחקה") } }).catch(() => {});
     } catch(e){
       yes.disabled = no.disabled = false;
       $("chatErr").textContent = e && e.code === "permission-denied"
@@ -890,11 +1090,31 @@ function photoDeleteControl(m, list){
   return box;
 }
 
+// ---- "מקליד…" (typing): we note the time we typed, at most once every 4 seconds
+let typingSentAt = 0;
+function sendTyping(){
+  if (!openChat || Date.now() - typingSentAt < 4000) return;
+  typingSentAt = Date.now();
+  fb.F.updateDoc(fb.F.doc(fb.db, "chats", openChat), { ["typing." + user.uid]: fb.F.serverTimestamp() }).catch(() => {});
+}
+const typingSeen = {};   // chat id -> { v: server value, at: local time we noticed it }
+function updateTyping(){
+  const c = chats.find(x => x.id === openChat);
+  const t = c && c.typing && c.typing[otherOf(c)];
+  const lastFromOther = c && c.last && c.last.from !== user.uid ? tsOf(c.last.at) : 0;
+  if (t && (!typingSeen[c.id] || typingSeen[c.id].v !== tsOf(t))) typingSeen[c.id] = { v: tsOf(t), at: Date.now() };
+  const seen = c && typingSeen[c.id];
+  const on = t && seen && Date.now() - seen.at < 7000 && tsOf(t) > lastFromOther;
+  $("chatSub").textContent = on ? "מקליד…" : "";
+}
+setInterval(() => { if (openChat) updateTyping(); }, 1500);
+
 $("lightbox").onclick = () => { $("lightbox").hidden = true; $("lightboxImg").src = ""; };
 
 function markRead(){
+  if (curTab !== "msgs" || $("chatCard").hidden || document.hidden) return;
   const c = chats.find(x => x.id === openChat);
-  if (!c || !isUnread(c) || document.hidden) return;
+  if (!c || !isUnread(c)) return;
   fb.F.updateDoc(fb.F.doc(fb.db, "chats", c.id), { ["read." + user.uid]: fb.F.serverTimestamp() }).catch(() => {});
 }
 document.addEventListener("visibilitychange", () => { if (!document.hidden && openChat) markRead(); });
@@ -938,9 +1158,9 @@ async function sendMsg(){
     const b = F.writeBatch(db);
     b.set(F.doc(F.collection(db, "chats", openChat, "messages")), { from: user.uid, text, photo, at: F.serverTimestamp() });
     b.update(F.doc(db, "chats", openChat), {
-      last: { from: user.uid, text: text.slice(0, 80), photo: !!photo, at: F.serverTimestamp() },
+      last: { from: user.uid, text: text.slice(0, 80), photo: !!photo, audio: false, at: F.serverTimestamp() },
       updatedAt: F.serverTimestamp(), ["read." + user.uid]: F.serverTimestamp() });
-    $("msgInput").value = ""; clearPhoto(); autoGrow();
+    $("msgInput").value = ""; clearPhoto(); autoGrow(); typingSentAt = 0;
     await b.commit();
   } catch(e){
     $("chatErr").textContent = e && e.code === "permission-denied" ? "ההודעה לא נשלחה. ייתכן שהנמען חסם אותך." : "ההודעה לא נשלחה. בדוק חיבור לאינטרנט.";
@@ -949,7 +1169,90 @@ async function sendMsg(){
 $("sendBtn").onclick = sendMsg;
 $("msgInput").addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey && !/Android|iPhone|iPad/i.test(navigator.userAgent)) { e.preventDefault(); sendMsg(); } });
 function autoGrow(){ const t = $("msgInput"); t.style.height = "auto"; t.style.height = Math.min(120, t.scrollHeight) + "px"; }
-$("msgInput").addEventListener("input", autoGrow);
+$("msgInput").addEventListener("input", () => { autoGrow(); if ($("msgInput").value.trim()) sendTyping(); });
+
+// ---- voice messages: tap 🎤, talk (up to 60 seconds), then "שלח הקלטה"
+const REC_MAX = 60, REC_MAX_CHARS = 380000;
+let rec = null, recStarting = false;
+function recMime(){
+  if (typeof MediaRecorder === "undefined") return null;
+  for (const t of ["audio/mp4;codecs=mp4a.40.2", "audio/webm;codecs=opus", "audio/ogg;codecs=opus", "audio/mp4", "audio/webm"]) if (MediaRecorder.isTypeSupported(t)) return t;
+  return "";
+}
+function showRec(on){ $("recBar").hidden = !on; $("composer").hidden = on; }
+function cancelRec(){
+  if (!rec) return;
+  const r = rec; rec = null; r.cancelled = true;
+  clearInterval(r.timer);
+  try { if (r.mr.state !== "inactive") r.mr.stop(); } catch(e){}
+  r.stream.getTracks().forEach(t => t.stop());
+  showRec(false);
+}
+$("micRecBtn").onclick = async () => {
+  if (rec || recStarting) return;
+  $("chatErr").textContent = "";
+  const mime = recMime();
+  if (mime === null) { $("chatErr").textContent = "הדפדפן הזה לא תומך בהקלטה. נסה Chrome או Safari מעודכן."; return; }
+  if (currentCall) { $("chatErr").textContent = "אי אפשר להקליט באמצע שיחה."; return; }
+  let stream;
+  recStarting = true;
+  try {
+    if (inApp || !navigator.mediaDevices) throw { name: "Unsupported" };
+    if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }   // avoid a stale mic on iOS
+    stream = await navigator.mediaDevices.getUserMedia({ audio: AUDIO_C });
+  } catch(e){ recStarting = false; $("chatErr").textContent = micErrorText(e); return; }
+  recStarting = false;
+  if (!openChat || currentCall) { stream.getTracks().forEach(t => t.stop()); return; }
+  const opts = { audioBitsPerSecond: 24000 }; if (mime) opts.mimeType = mime;
+  let mr; try { mr = new MediaRecorder(stream, opts); } catch(e){ mr = new MediaRecorder(stream); }
+  const r = rec = { mr, stream, chunks: [], t0: Date.now(), cancelled: false, send: false, chat: openChat, bytes: 0 };
+  mr.ondataavailable = e => {
+    if (!e.data || !e.data.size) return;
+    r.chunks.push(e.data); r.bytes += e.data.size;
+    if (r.bytes * 4 / 3 > REC_MAX_CHARS * 0.9 && mr.state === "recording") { r.send = true; try { mr.stop(); } catch(err){} }
+  };
+  mr.onstop = async () => {
+    stream.getTracks().forEach(t => t.stop());
+    clearInterval(r.timer);
+    if (rec === r) rec = null;
+    showRec(false);
+    if (r.cancelled || !r.send) return;
+    const blob = new Blob(r.chunks, { type: (mr.mimeType || mime || "audio/webm").split(";")[0] });
+    if (blob.size < 800) { $("chatErr").textContent = "ההקלטה קצרה מדי."; return; }
+    const url = await new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = rej; fr.readAsDataURL(blob); });
+    if (url.length > REC_MAX_CHARS) { $("chatErr").textContent = "ההקלטה ארוכה מדי. נסה הקלטה קצרה יותר."; return; }
+    if (!isAudio(url)) { $("chatErr").textContent = "סוג ההקלטה לא נתמך בדפדפן הזה."; return; }
+    sendVoice(url, r.chat);
+  };
+  mr.start(1000);
+  showRec(true);
+  $("recTime").textContent = "0:00";
+  r.timer = setInterval(() => {
+    const sec = Math.floor((Date.now() - r.t0) / 1000);
+    $("recTime").textContent = Math.floor(sec / 60) + ":" + String(sec % 60).padStart(2, "0") + " / 1:00";
+    if (sec >= REC_MAX) { r.send = true; try { mr.stop(); } catch(e){} }
+  }, 250);
+};
+$("recCancel").onclick = cancelRec;
+$("recSend").onclick = () => { if (!rec) return; rec.send = true; try { rec.mr.stop(); } catch(e){} };
+
+async function sendVoice(audio, chatId){
+  if (!chatId) return;
+  const { F, db } = fb;
+  $("chatErr").textContent = "";
+  try {
+    const b = F.writeBatch(db);
+    b.set(F.doc(F.collection(db, "chats", chatId, "messages")), { from: user.uid, text: "", photo: "", audio, at: F.serverTimestamp() });
+    b.update(F.doc(db, "chats", chatId), {
+      last: { from: user.uid, text: "", photo: false, audio: true, at: F.serverTimestamp() },
+      updatedAt: F.serverTimestamp(), ["read." + user.uid]: F.serverTimestamp() });
+    await b.commit();
+  } catch(e){
+    $("chatErr").textContent = e && e.code === "permission-denied"
+      ? "ההקלטה לא נשלחה. ייתכן שצריך לעדכן את כללי האבטחה ב־Firebase, או שהנמען חסם אותך."
+      : "ההקלטה לא נשלחה. בדוק חיבור לאינטרנט.";
+  }
+}
 
 let beepCtx;
 function msgBeep(){

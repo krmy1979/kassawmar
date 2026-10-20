@@ -52,28 +52,45 @@ service cloud.firestore {
         && exists(/databases/$(database)/documents/profiles/$(otherIn(request.resource.data.members)))
         && request.resource.data.last == null;
       allow update: if request.auth != null && request.auth.uid in resource.data.members
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['last','read','updatedAt'])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['last','read','updatedAt','typing'])
         && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['last'])
-            || (request.resource.data.last.from == request.auth.uid && !blockedBy(otherIn(resource.data.members))));
+            || (request.resource.data.last.from == request.auth.uid && !blockedBy(otherIn(resource.data.members))))
+        // "read" (✓✓) and "typing…": each side may only set its own entry
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['read'])
+            || request.resource.data.read.diff(resource.data.get('read', {})).affectedKeys().hasOnly([request.auth.uid]))
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['typing'])
+            || request.resource.data.typing.diff(resource.data.get('typing', {})).affectedKeys().hasOnly([request.auth.uid]));
       allow delete: if false;
 
       match /messages/{msgId} {
         function chat() { return get(/databases/$(database)/documents/chats/$(chatId)).data; }
         allow read: if request.auth != null && request.auth.uid in chat().members;
         allow create: if request.auth != null && request.auth.uid in chat().members
-          && request.resource.data.keys().hasOnly(['from','text','photo','at'])
+          && request.resource.data.keys().hasOnly(['from','text','photo','audio','at'])
           && request.resource.data.from == request.auth.uid
           && request.resource.data.at == request.time
           && request.resource.data.text is string && request.resource.data.text.size() <= 2000
-          && request.resource.data.photo is string && request.resource.data.photo.size() <= 300000
-          && (request.resource.data.text.size() > 0 || request.resource.data.photo.size() > 0)
+          && request.resource.data.get('photo', '') is string && request.resource.data.get('photo', '').size() <= 300000
+          && request.resource.data.get('audio', '') is string && request.resource.data.get('audio', '').size() <= 400000
+          && (request.resource.data.text.size() > 0 || request.resource.data.get('photo', '').size() > 0
+              || request.resource.data.get('audio', '').size() > 0)
           && !blockedBy(otherIn(chat().members));
-        // the sender may remove the photo from their own message, for both sides (text stays)
-        allow update: if request.auth != null && request.auth.uid in chat().members
-          && resource.data.from == request.auth.uid
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['photo','photoDeleted'])
-          && request.resource.data.photo == ''
-          && request.resource.data.photoDeleted == true;
+        // removing a photo / voice message (text stays):
+        //  - the sender deletes their own photo or voice message for both sides, or
+        //  - it is older than 7 days and any member's app clears it
+        allow update: if request.auth != null && request.auth.uid in chat().members && (
+             (resource.data.from == request.auth.uid
+               && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['photo','photoDeleted'])
+               && request.resource.data.photo == '' && request.resource.data.photoDeleted == true)
+          || (resource.data.from == request.auth.uid
+               && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['audio','audioDeleted'])
+               && request.resource.data.audio == '' && request.resource.data.audioDeleted == true)
+          || (request.time > resource.data.at + duration.value(7, 'd')
+               && (resource.data.get('photo', '') != '' || resource.data.get('audio', '') != '')
+               && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['photo','audio','mediaExpired'])
+               && request.resource.data.get('photo', '') == '' && request.resource.data.get('audio', '') == ''
+               && request.resource.data.mediaExpired == true)
+        );
         allow delete: if false;
       }
     }

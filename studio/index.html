@@ -438,12 +438,22 @@ textarea,input[type=text]{width:100%;border:1px solid var(--line);background:var
       <button id="trimR">איפוס</button>
     </div>
     <div class="small mut" id="trimInfo"></div>
+    <div class="sec">🗑️ מחיקת קטע מהאמצע</div>
+    <div class="row">
+      <button class="grow" id="delS">📍 תחילת הקטע</button>
+      <button class="grow" id="delE" disabled>✂️ סוף הקטע ומחיקה</button>
+    </div>
+    <div class="small mut" id="delInfo">הזיזו את הסרטון לתחילת הקטע המיותר ולחצו "תחילת הקטע". אחר כך הזיזו לסוף שלו ולחצו "סוף הקטע ומחיקה".</div>
+    <div class="capList" id="delList"></div>
     <div class="sec">🤐 חיתוך שתיקות (ג'אמפ קאט)</div>
     <label class="tog"><span>לחתוך אוטומטית את הרגעים שבהם לא מדברים</span><input type="checkbox" id="optCut"></label>
     <div class="seg" id="segCut"><button data-v="soft">רק שתיקות ארוכות</button><button data-v="mid">רגיל</button><button data-v="hard">קצבי (טיקטוק)</button></div>
     <div class="small mut" id="cutInfo"></div>
     <div class="sec">🔍 זום דינמי</div>
     <label class="tog"><span>זום קטן לסירוגין בין כתוביות (נותן תחושה של כמה מצלמות)</span><input type="checkbox" id="optZoom"></label>
+    <div class="sec">🔄 להתחיל מחדש</div>
+    <button class="danger" id="delAll">🗑️ מחיקת כל הסרטון וצילום מחדש</button>
+    <div class="small mut">התסריט נשאר. רק הצילום נמחק.</div>
     <div class="sec">🏷️ לוגו / שם משתמש</div>
     <input type="text" id="wmText" placeholder="למשל @ronen" aria-label="טקסט סימן מים" dir="auto">
     <div class="row"><button class="grow" id="wmImgBtn">🖼️ הוספת לוגו (תמונה)</button><button id="wmImgDel" class="danger" hidden>🗑</button></div>
@@ -813,7 +823,7 @@ let ST = Object.assign({ font: 0, color: "#ffffff", hl: "#ffe14d", box: "outline
 const saveST = () => LS.set("st2_style", ST);
 let caps = [], capSrc = "script", duration = 0, videoUrl = "", edited = false, sel = -1, editLoopOn = false;
 // per-video edit state
-let ED = { trimS: 0, trimE: 0, cut: false, cutLvl: "mid", zoom: false };
+let ED = { trimS: 0, trimE: 0, cut: false, cutLvl: "mid", zoom: false, dels: [], markS: null };
 let keep = null; // [{s,e}] kept parts of the video (after trim + silence cut)
 
 function updFmt(){
@@ -873,7 +883,7 @@ function openEditor(fromRec){
   stopBuf(); v.muted = false;
   v.src = videoUrl; v.load();
   duration = fromRec ? recDur : 0;
-  ED = { trimS: 0, trimE: 0, cut: false, cutLvl: ED.cutLvl || "mid", zoom: ED.zoom };
+  ED = { trimS: 0, trimE: 0, cut: false, cutLvl: ED.cutLvl || "mid", zoom: ED.zoom, dels: [], markS: null };
   origBuf = null; mixBuf = null; dnCache = {}; voiced = null; aiChunks = null; aiUse = null;
   $("result").hidden = true; $("backToEdit").hidden = false;
   if (!chunks.length) chunks = chunkScript($("script").value);
@@ -1039,25 +1049,39 @@ function fft(F, re, im, inv){
   if (inv) for (let i = 0; i < N; i++) { re[i] /= N; im[i] /= N; }
 }
 async function spectralGate(x, sr, level, onProg){
+  // pad both ends so every real sample gets full window coverage (no edge artifacts)
   const N = 1024, H = 256, B = N / 2 + 1, F = fftInit(N), win = new Float64Array(N);
   for (let i = 0; i < N; i++) win[i] = 0.5 - 0.5 * Math.cos(2 * Math.PI * i / N);
-  const len = x.length, nF = Math.max(1, Math.ceil((len - N) / H) + 1);
+  const n0 = x.length, xp = new Float32Array(n0 + 2 * N); xp.set(x, N);
+  const len = xp.length, nF = Math.max(1, Math.ceil((len - N) / H) + 1);
   const re = new Float64Array(N), im = new Float64Array(N);
-  const load = f => { const o = f * H; for (let i = 0; i < N; i++) { re[i] = (x[o + i] || 0) * win[i]; im[i] = 0; } fft(F, re, im, false); };
+  const load = f => { const o = f * H; for (let i = 0; i < N; i++) { re[i] = (xp[o + i] || 0) * win[i]; im[i] = 0; } fft(F, re, im, false); };
+  // learn the noise from the quietest real frames (digital silence is ignored)
   const en = new Float32Array(nF);
-  for (let f = 0; f < nF; f++) { let s = 0; const o = f * H; for (let i = 0; i < N; i += 4) { const v = x[o + i] || 0; s += v * v; } en[f] = s; }
-  const order = Array.from(en.keys()).sort((a, b) => en[a] - en[b]).slice(0, Math.max(6, Math.floor(nF * 0.1)));
+  for (let f = 0; f < nF; f++) { let s = 0; const o = f * H; for (let i = 0; i < N; i += 4) { const v = xp[o + i] || 0; s += v * v; } en[f] = s; }
+  let cand = Array.from(en.keys()).filter(f => en[f] > 1e-9);
+  if (cand.length < 6) cand = Array.from(en.keys());
+  const order = cand.sort((a, b) => en[a] - en[b]).slice(0, Math.max(6, Math.floor(cand.length * 0.1)));
   const mean = new Float64Array(B), sq = new Float64Array(B);
   for (const f of order) { load(f); for (let k = 0; k < B; k++) { const d = 20 * Math.log10(Math.hypot(re[k], im[k]) + 1e-9); mean[k] += d; sq[k] += d * d; } }
   const thr = new Float64Array(B);
   for (let k = 0; k < B; k++) { const m = mean[k] / order.length, sd = Math.sqrt(Math.max(0, sq[k] / order.length - m * m)); thr[k] = m + 1.5 * sd + 2; }
   const floor = Math.pow(10, -[0, 10, 17, 25][level] / 20);
-  const out = new Float32Array(len), wsum = new Float32Array(len), m = new Float32Array(B), g = new Float32Array(B).fill(1);
+  // speech band: voice opens many bins at once; a hum, beep or whistle opens only one or two
+  const kLo = Math.max(1, Math.round(120 * N / sr)), kHi = Math.min(B - 1, Math.round(3800 * N / sr)), band = kHi - kLo + 1;
+  const holdF = Math.round(0.18 * sr / H);
+  const out = new Float32Array(len), wsum = new Float32Array(len), m = new Float32Array(B), g = new Float32Array(B).fill(0);
+  let act = 0, hold = 0;
   for (let f = 0; f < nF; f++) {
     load(f);
-    for (let k = 0; k < B; k++) { const d = 20 * Math.log10(Math.hypot(re[k], im[k]) + 1e-9); m[k] = 1 / (1 + Math.exp(-(d - thr[k]) / 2.5)); }
+    let open = 0;
+    for (let k = 0; k < B; k++) { const d = 20 * Math.log10(Math.hypot(re[k], im[k]) + 1e-9); m[k] = 1 / (1 + Math.exp(-(d - thr[k]) / 2.5)); if (k >= kLo && k <= kHi && m[k] > 0.5) open++; }
+    const voice = open / band > 0.12;
+    if (voice) hold = holdF; else if (hold > 0) hold--;
+    const target = voice || hold > 0 ? 1 : 0;
+    act = target > act ? act * 0.3 + 0.7 : act * 0.85;     // open fast, close softly
     for (let k = 0; k < B; k++) {
-      const sm = (m[Math.max(0, k - 1)] + 2 * m[k] + m[Math.min(B - 1, k + 1)]) / 4;
+      const sm = (m[Math.max(0, k - 1)] + 2 * m[k] + m[Math.min(B - 1, k + 1)]) / 4 * act;
       g[k] = sm > g[k] ? sm : g[k] * 0.65 + sm * 0.35;   // fast open, slower close: no "musical noise"
       const gain = floor + (1 - floor) * g[k];
       re[k] *= gain; im[k] *= gain;
@@ -1068,9 +1092,15 @@ async function spectralGate(x, sr, level, onProg){
     for (let i = 0; i < N && o + i < len; i++) { out[o + i] += re[i] * win[i]; wsum[o + i] += win[i] * win[i]; }
     if (f % 300 === 0) { onProg && onProg(f / nF); await sleep(0); }
   }
-  for (let i = 0; i < len; i++) out[i] = wsum[i] > 1e-3 ? out[i] / wsum[i] : 0;
+  const y = new Float32Array(n0), fade = Math.min(n0 >> 1, Math.round(sr * 0.02));
+  for (let i = 0; i < n0; i++) {
+    const w = wsum[i + N]; let v = w > 0.5 ? out[i + N] / w : 0;
+    if (!isFinite(v)) v = 0;
+    if (i < fade) v *= i / fade; else if (i >= n0 - fade) v *= (n0 - 1 - i) / fade;
+    y[i] = v > 1 ? 1 : v < -1 ? -1 : v;
+  }
   onProg && onProg(1);
-  return out;
+  return y;
 }
 // ---- voice activity (for silence cutting): 20 ms frames above the noise floor
 function voiceActivity(mono, sr){
@@ -1098,6 +1128,16 @@ function calcKeep(){
   const D = duration || 0, a = ED.trimS, b = ED.trimE > 0 ? ED.trimE : D;
   let segs = [{ s: a, e: b }];
   if (ED.cut) { const sk = speechKeep(ED.cutLvl); if (sk) segs = sk.map(g => ({ s: Math.max(a, g.s), e: Math.min(b, g.e) })).filter(g => g.e - g.s > 0.08); }
+  // remove the parts the user deleted by hand
+  for (const d of ED.dels || []) {
+    const nx = [];
+    for (const g of segs) {
+      if (d.e <= g.s || d.s >= g.e) { nx.push(g); continue; }
+      if (d.s - g.s > 0.08) nx.push({ s: g.s, e: d.s });
+      if (g.e - d.e > 0.08) nx.push({ s: d.e, e: g.e });
+    }
+    segs = nx;
+  }
   keep = segs.length ? segs : [{ s: a, e: b }];
 }
 const keptLen = () => keep ? keep.reduce((s, g) => s + g.e - g.s, 0) : duration;
@@ -1122,6 +1162,7 @@ const v_ = () => $("player");
 $("player").addEventListener("play", () => { $("playBtn").textContent = "⏸"; $("playOv").hidden = true; if (mixBuf && !abHold) playBuf(v_().currentTime); });
 $("player").addEventListener("pause", () => { $("playBtn").textContent = "▶"; $("playOv").hidden = false; stopBuf(); });
 $("player").addEventListener("seeking", stopBuf);
+$("player").addEventListener("ended", stopBuf);
 $("player").addEventListener("seeked", () => { if (!v_().paused && mixBuf && !abHold) playBuf(v_().currentTime); });
 
 function togglePlay(){
@@ -1620,7 +1661,7 @@ $("csize").oninput = () => { ST.size = +$("csize").value; $("sizeVal").textConte
 let paintCutLvl = null;
 function paintCut(){
   $("optCut").checked = ED.cut; $("optZoom").checked = ED.zoom; paintCutLvl && paintCutLvl();
-  $("optCut").disabled = !voiced; $("segCut").hidden = !ED.cut;
+  $("optCut").disabled = !voiced; $("segCut").hidden = !ED.cut; paintDels();
   const b = ED.trimE > 0 ? ED.trimE : duration;
   $("trimInfo").textContent = "מ-" + fmtP(ED.trimS) + " עד " + fmtP(b) + (ED.trimS || ED.trimE ? " · נחתכו " + fmtP(duration - (b - ED.trimS)) : "") + ". הזיזו את הסרטון לנקודה הרצויה ולחצו.";
   if (!voiced) $("cutInfo").textContent = "זמין אחרי שהקול נטען.";
@@ -1633,6 +1674,43 @@ $("optZoom").onchange = () => { ED.zoom = $("optZoom").checked; vDirty = true; }
 $("trimS").onclick = () => { const t = $("player").currentTime; const b = ED.trimE > 0 ? ED.trimE : duration; if (t >= b - 0.3) return toast("נקודת ההתחלה חייבת להיות לפני הסוף"); ED.trimS = t; calcKeep(); renderTimeline(); paintCut(); toast("הסרטון יתחיל ב-" + fmtP(t)); };
 $("trimE").onclick = () => { const t = $("player").currentTime; if (t <= ED.trimS + 0.3) return toast("נקודת הסיום חייבת להיות אחרי ההתחלה"); ED.trimE = t; calcKeep(); renderTimeline(); paintCut(); toast("הסרטון יסתיים ב-" + fmtP(t)); };
 $("trimR").onclick = () => { ED.trimS = 0; ED.trimE = 0; calcKeep(); renderTimeline(); paintCut(); };
+// ---- delete a part from the middle
+function curT(){ const v = $("player"); v.pause(); return v.currentTime || 0; }
+function paintDels(){
+  $("delE").disabled = ED.markS == null;
+  $("delS").textContent = ED.markS == null ? "📍 תחילת הקטע" : "📍 התחלה: " + fmtP(ED.markS);
+  const box = $("delList"); box.textContent = "";
+  (ED.dels || []).forEach((d, i) => {
+    const r = document.createElement("div"); r.className = "tog";
+    const t = document.createElement("span"); t.textContent = "נמחק: " + fmtP(d.s) + " – " + fmtP(d.e);
+    const b = document.createElement("button"); b.className = "chip"; b.textContent = "↩️ החזר";
+    b.onclick = () => { ED.dels.splice(i, 1); calcKeep(); renderTimeline(); paintCut(); toast("הקטע הוחזר"); };
+    r.append(t, b); box.appendChild(r);
+  });
+}
+$("delS").onclick = () => { ED.markS = curT(); paintDels(); toast("ההתחלה סומנה ב-" + fmtP(ED.markS) + ". עכשיו הזיזו לסוף הקטע."); };
+$("delE").onclick = () => {
+  if (ED.markS == null) return;
+  let a = ED.markS, b = curT(); if (b < a) [a, b] = [b, a];
+  if (b - a < 0.2) return toast("הקטע קצר מדי. הזיזו את הסרטון לסוף הקטע ואז לחצו.");
+  ED.dels.push({ s: a, e: b }); ED.markS = null;
+  calcKeep(); renderTimeline(); paintCut();
+  $("player").currentTime = Math.max(0, a - 0.5);
+  toast("נמחקו " + (b - a).toFixed(1) + " שניות");
+};
+// ---- delete the whole video and film again (the script stays)
+$("delAll").onclick = () => {
+  if (!confirm("למחוק את כל הסרטון ולצלם מחדש? התסריט יישאר.")) return;
+  const v = $("player"); v.pause(); stopBuf();
+  v.removeAttribute("src"); v.load();
+  if (videoUrl) { URL.revokeObjectURL(videoUrl); videoUrl = null; }
+  recBlob = null; duration = 0; keep = null;
+  origBuf = null; mixBuf = null; dnCache = {}; voiced = null; aiChunks = null; aiUse = null; speechSegs = [];
+  ED = { trimS: 0, trimE: 0, cut: false, cutLvl: ED.cutLvl || "mid", zoom: ED.zoom, dels: [], markS: null };
+  $("backToEdit").hidden = true; $("result").hidden = true;
+  show("home"); toast("הסרטון נמחק. מצלמים מחדש…");
+  $("goRec").click();
+};
 
 // ---- translation (MyMemory, free)
 async function translate(text){

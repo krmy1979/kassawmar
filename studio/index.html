@@ -582,7 +582,7 @@ $("backToEdit").onclick = () => { show("edit"); fitStage(); startEditLoop(); };
 $("importBtn").onclick = () => $("importInput").click();
 $("importInput").onchange = () => {
   const f = $("importInput").files[0]; if (!f) return;
-  recBlob = f; recDur = 0; times = []; speechSegs = []; chunks = chunkScript($("script").value);
+  recBlob = f; recDur = 0; times = []; speechSegs = []; micPCM = null; chunks = chunkScript($("script").value);
   $("importInput").value = "";
   openEditor(false);
 };
@@ -708,7 +708,32 @@ function pickMime(){
              "video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm"];
   return c.find(m => window.MediaRecorder && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(m)) || "";
 }
-$("recBtn").onclick = () => recording ? stopRec(false) : countdown();
+$("recBtn").onclick = () => { if (!recording) { try { getAC().resume(); } catch(e){} } recording ? stopRec(false) : countdown(); };
+// ---- full-length copy of the microphone, captured while filming.
+// iPhone sometimes can't read back the whole sound from its own video file; this copy is used instead.
+let micCap = null, micPCM = null;
+function micStart(){
+  micStop(); micPCM = null;
+  try {
+    const at = stream && stream.getAudioTracks()[0]; if (!at) return;
+    const ctx = getAC(); ctx.resume().catch(() => {});
+    const src = ctx.createMediaStreamSource(new MediaStream([at]));
+    const sp = ctx.createScriptProcessor(4096, 1, 1), mute = ctx.createGain(); mute.gain.value = 0;
+    const bufs = [];
+    sp.onaudioprocess = e => { if (recording && !recPaused) bufs.push(new Float32Array(e.inputBuffer.getChannelData(0))); };
+    src.connect(sp); sp.connect(mute); mute.connect(ctx.destination);
+    micCap = { src, sp, mute, bufs, sr: ctx.sampleRate };
+  } catch(e) { console.warn("mic copy off", e); micCap = null; }
+}
+function micStop(keep){
+  if (!micCap) return;
+  const c = micCap; micCap = null;
+  try { c.src.disconnect(); c.sp.disconnect(); c.mute.disconnect(); } catch(e){}
+  if (!keep) return;
+  let n = 0; for (const b of c.bufs) n += b.length;
+  const d = new Float32Array(n); let o = 0; for (const b of c.bufs) { d.set(b, o); o += b.length; }
+  micPCM = n ? { data: d, sr: c.sr } : null;
+}
 async function countdown(){
   if (!stream) { await openCamera(); if (!stream) return; }
   if (S.cd) {
@@ -730,6 +755,7 @@ function startRec(){
   };
   pPos = 0; times = new Array(chunks.length).fill(null); lastCur = -2;
   recorder.start(1000); t0 = performance.now(); recording = true; recPaused = false; pausedTotal = 0;
+  micStart();
   $("recBtn").classList.add("on"); $("recBtn").setAttribute("aria-label", "סיים צילום");
   $("timer").hidden = false; $("rtop").lastElementChild.style.visibility = "hidden"; paintRecUI(); paintPause();
   clearInterval(timerInt);
@@ -742,6 +768,7 @@ function stopRec(discard){
   recording = false; clearInterval(timerInt); stopSpeech();
   $("recBtn").classList.remove("on"); $("recBtn").setAttribute("aria-label", "התחל הקלטה");
   $("timer").hidden = true; $("rtop").lastElementChild.style.visibility = ""; $("pauseOv").hidden = true; paintRecUI(); paintPause();
+  micStop(!discard);
   if (recorder && recorder.state !== "inactive") { if (discard) recorder.onstop = null; recorder.stop(); }
 }
 function paintRecUI(){ $("recPause").hidden = !recording; $("resetP").hidden = recording; }
@@ -931,7 +958,10 @@ async function decodeAudio(blob){
   paintAudio("טוען את הקול…");
   try {
     const ab = await blob.arrayBuffer(), ctx = getAC();
-    origBuf = await new Promise((res, rej) => { const p = ctx.decodeAudioData(ab, res, rej); if (p && p.then) p.then(res, rej); });
+    let dec = null;
+    try { dec = await new Promise((res, rej) => { const p = ctx.decodeAudioData(ab, res, rej); if (p && p.then) p.then(res, rej); }); }
+    catch(e) { if (!micPCM) throw e; }
+    origBuf = pickFullAudio(dec, ctx);
     if (!duration || !isFinite(duration)) setDuration(origBuf.duration);
     voiced = voiceActivity(toMono(origBuf), origBuf.sampleRate);
     setTimeout(() => { if (origBuf && duration && isFinite(duration) && origBuf.duration < duration - 0.5)
@@ -944,6 +974,33 @@ async function decodeAudio(blob){
     paintAudio("⚠️ הדפדפן הזה לא מצליח לפענח את הקול של הסרטון, ולכן שיפורי הקול, חיתוך השתיקות וה-AI לא זמינים. נסו Chrome.");
   }
   paintAi();
+}
+// The decoded sound is best (exactly in sync). If it is missing or ends early, use the
+// microphone copy instead, shifted so it lines up with the video.
+function pickFullAudio(dec, ctx){
+  if (!micPCM) return dec;
+  const m = micPCM, mDur = m.data.length / m.sr;
+  if (dec && dec.duration >= mDur - 0.4) return dec;
+  let data = m.data;
+  if (dec && dec.duration > 1.5) {
+    const lag = findLag(toMono(dec), dec.sampleRate, m.data, m.sr);   // seconds the mic copy is late
+    const sh = Math.round(lag * m.sr);
+    if (sh > 0) data = m.data.subarray(sh);
+    else if (sh < 0) { data = new Float32Array(m.data.length - sh); data.set(m.data, -sh); }
+  }
+  const b = ctx.createBuffer(1, data.length, m.sr); b.copyToChannel(data, 0);
+  console.info("using mic copy", { decoded: dec && dec.duration, mic: mDur });
+  return b;
+}
+// compare loudness envelopes (5 ms steps) over the first seconds to find the offset, ±0.6 s
+function findLag(a, srA, b, srB){
+  const step = 0.005, env = (x, sr, secs) => { const h = Math.round(sr * step), n = Math.min(Math.floor(x.length / h), Math.round(secs / step)), e = new Float32Array(n);
+    for (let i = 0; i < n; i++) { let s = 0; for (let j = 0; j < h; j++) { const v = x[i * h + j]; s += v * v; } e[i] = Math.sqrt(s / h); }
+    let mu = 0; for (const v of e) mu += v; mu /= n || 1; for (let i = 0; i < n; i++) e[i] -= mu; return e; };
+  const secs = Math.min(12, a.length / srA, b.length / srB), A = env(a, srA, secs), B = env(b, srB, secs), maxL = Math.round(0.6 / step);
+  let best = 0, bestV = -Infinity;
+  for (let L = -maxL; L <= maxL; L++) { let s = 0; for (let i = 0; i < A.length; i++) { const j = i + L; if (j >= 0 && j < B.length) s += A[i] * B[j]; } if (s > bestV) { bestV = s; best = L; } }
+  return best * step;
 }
 function paintAudio(msg){
   if (msg != null) $("auStatus").textContent = msg;

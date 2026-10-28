@@ -1,5 +1,5 @@
 {
- "updated": "2026-10-28T02:43:40.128Z",
+ "updated": "2026-10-28T03:41:18.649Z",
  "live": {
   "UCisowXt5wZkp2sR3rFh9lnQ": {
    "video": "SyzG3JgF06s",
@@ -9,11 +9,6 @@
   "UCVcc_sbg3AcXLV9vVufJrGg": {
    "video": "0qBGBITzrLk",
    "embed": true
-  },
-  "UCvHDpsWKADrDia0c99X37vg": {
-   "video": "yMr7XUp_U0Y",
-   "embed": true,
-   "kept": true
   }
  },
  "status": {
@@ -29,6 +24,6 @@
   "UCEiPUKkNiYgLkyLRYEBY5aw": "no live video",
   "UCSnwxtpNr-2QupM0qi11Y6Q": "no live video",
   "UCSYM-vgRrMYsZbG-Z7Kz0Pw": "no live video",
-  "UCvHDpsWKADrDia0c99X37vg": "bot check"
+  "UCvHDpsWKADrDia0c99X37vg": "no live video"
  }
 }

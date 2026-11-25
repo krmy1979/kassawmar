@@ -1,5 +1,5 @@
 {
- "updated": "2026-11-25T09:09:40.287Z",
+ "updated": "2026-11-25T19:26:54.636Z",
  "live": {
   "UCKEImtWikw9usC1pl_9m1nQ": {
    "video": "ri1Glh_siuc",
@@ -13,8 +13,7 @@
   },
   "UCZtXd8pSeqURf5MT2fqE51g": {
    "video": "2orALYppbs0",
-   "embed": true,
-   "kept": true
+   "embed": true
   },
   "UCVcc_sbg3AcXLV9vVufJrGg": {
    "video": "0qBGBITzrLk",
@@ -28,12 +27,12 @@
   "UCKEImtWikw9usC1pl_9m1nQ": "bot check",
   "UCisowXt5wZkp2sR3rFh9lnQ": "bot check",
   "UCpjNXONNE-JUz7QACB1Cgcw": "bot check",
-  "UCOhrz3uRCOHmK6ueUstw7_Q": "bot check",
-  "UCZtXd8pSeqURf5MT2fqE51g": "bot check",
+  "UCOhrz3uRCOHmK6ueUstw7_Q": "no live video",
+  "UCZtXd8pSeqURf5MT2fqE51g": "live",
   "UCVcc_sbg3AcXLV9vVufJrGg": "live",
   "UCEiPUKkNiYgLkyLRYEBY5aw": "no live video",
   "UCSnwxtpNr-2QupM0qi11Y6Q": "no live video",
   "UCSYM-vgRrMYsZbG-Z7Kz0Pw": "no live video",
-  "UCvHDpsWKADrDia0c99X37vg": "no live video"
+  "UCvHDpsWKADrDia0c99X37vg": "bot check"
  }
 }

@@ -1,5 +1,5 @@
 {
- "updated": "2026-11-25T00:32:21.063Z",
+ "updated": "2026-11-25T09:09:40.287Z",
  "live": {
   "UCKEImtWikw9usC1pl_9m1nQ": {
    "video": "ri1Glh_siuc",
@@ -13,7 +13,8 @@
   },
   "UCZtXd8pSeqURf5MT2fqE51g": {
    "video": "2orALYppbs0",
-   "embed": true
+   "embed": true,
+   "kept": true
   },
   "UCVcc_sbg3AcXLV9vVufJrGg": {
    "video": "0qBGBITzrLk",
@@ -26,9 +27,9 @@
   "UCvQmPpU20hw1Trss_CVwaew": "no live video",
   "UCKEImtWikw9usC1pl_9m1nQ": "bot check",
   "UCisowXt5wZkp2sR3rFh9lnQ": "bot check",
-  "UCpjNXONNE-JUz7QACB1Cgcw": "no live video",
-  "UCOhrz3uRCOHmK6ueUstw7_Q": "no live video",
-  "UCZtXd8pSeqURf5MT2fqE51g": "live",
+  "UCpjNXONNE-JUz7QACB1Cgcw": "bot check",
+  "UCOhrz3uRCOHmK6ueUstw7_Q": "bot check",
+  "UCZtXd8pSeqURf5MT2fqE51g": "bot check",
   "UCVcc_sbg3AcXLV9vVufJrGg": "live",
   "UCEiPUKkNiYgLkyLRYEBY5aw": "no live video",
   "UCSnwxtpNr-2QupM0qi11Y6Q": "no live video",
